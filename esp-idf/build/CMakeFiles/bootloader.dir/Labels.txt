@@ -1,0 +1,13 @@
+# Target labels
+ bootloader
+# Source files and their labels
+/home/tomsar/programas/esp/esp32_freertos/esp-idf/build/CMakeFiles/bootloader
+/home/tomsar/programas/esp/esp32_freertos/esp-idf/build/CMakeFiles/bootloader.rule
+/home/tomsar/programas/esp/esp32_freertos/esp-idf/build/CMakeFiles/bootloader-complete.rule
+/home/tomsar/programas/esp/esp32_freertos/esp-idf/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule
+/home/tomsar/programas/esp/esp32_freertos/esp-idf/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule
+/home/tomsar/programas/esp/esp32_freertos/esp-idf/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule
+/home/tomsar/programas/esp/esp32_freertos/esp-idf/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule
+/home/tomsar/programas/esp/esp32_freertos/esp-idf/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule
+/home/tomsar/programas/esp/esp32_freertos/esp-idf/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule
+/home/tomsar/programas/esp/esp32_freertos/esp-idf/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule
