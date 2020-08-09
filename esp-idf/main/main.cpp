@@ -1,8 +1,11 @@
 #include <stdio.h>
+#include <iostream>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
+
+using namespace std;
 
 #define DELAY_COUNTER_MS				( ( uint16_t ) 500 )
 #define DELAY_BLINKER_MS				( ( uint16_t ) 5000 )
@@ -13,8 +16,8 @@
 #define configCOUNT_TASK_STACK_SIZE		( configMINIMAL_STACK_SIZE + 1024 )
 #define configBLINK_TASK_STACK_SIZE		( configMINIMAL_STACK_SIZE + 2048 )
 
-#define GPIO_OUTPUT_IO_0    18
-#define GPIO_OUTPUT_IO_1    19
+#define GPIO_OUTPUT_IO_0   				( ( gpio_num_t ) 18 )
+#define GPIO_OUTPUT_IO_1    			( ( gpio_num_t ) 19 )
 #define GPIO_OUTPUT_PIN_SEL  ((1ULL<<GPIO_OUTPUT_IO_0) | (1ULL<<GPIO_OUTPUT_IO_1))
 
 static void prvCountTask( void * );
@@ -22,17 +25,20 @@ static void prvBlinkTask( void * );
 
 void configure_gpio( void );
 
-void app_main(void)
+extern "C"
 {
-    // xTaskCreate( 	prvCountTask, "countTask", 
-	// 				configCOUNT_TASK_STACK_SIZE, NULL, 
-	// 				mainCOUNT_TASK_PRIORITY, NULL );
+	void app_main( void );
+}
+
+void app_main( void )
+{
+    xTaskCreate( 	prvCountTask, "countTask", 
+					configCOUNT_TASK_STACK_SIZE, NULL, 
+					mainCOUNT_TASK_PRIORITY, NULL );
 
 	xTaskCreate( 	prvBlinkTask, "blinkTask", 
 					configBLINK_TASK_STACK_SIZE, NULL, 
 					mainBLINK_TASK_PRIORITY, NULL );
-
-	//vTaskStartScheduler();
 }
 
 static void prvCountTask( void *pvParameters )
@@ -45,7 +51,7 @@ static void prvCountTask( void *pvParameters )
 
     for( ; ; )
 	{
-        printf("Counter -> [%d] - WaterMark= %d\n", i++, uxHighWaterMark);
+        cout << "Counter -> [" << i++ << "] - WaterMark = " << uxHighWaterMark << endl;
         vTaskDelay( DELAY_COUNTER_MS / portTICK_PERIOD_MS);
 		uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
     }
@@ -63,7 +69,7 @@ static void prvBlinkTask( void *pvParameters )
 
     for( ; ; )
 	{
-        printf("Blinker -> WaterMark = %d\n", uxHighWaterMark);
+        cout << "Blinker -> WaterMark = " << uxHighWaterMark << endl;
 
 		gpio_set_level( GPIO_OUTPUT_IO_0, 1 );
 
@@ -93,12 +99,11 @@ void configure_gpio()
     io_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
 
     //disable pull-down mode
-    io_conf.pull_down_en = 0;
+    io_conf.pull_down_en = ( gpio_pulldown_t ) 0;
 
     //disable pull-up mode
-    io_conf.pull_up_en = 0;
+    io_conf.pull_up_en = ( gpio_pullup_t ) 0;
 
     //configure GPIO with the given settings
     gpio_config(&io_conf);
 }
-
