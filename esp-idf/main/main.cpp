@@ -4,27 +4,39 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
-#include "esp_wifi.h"
-#include "nvs_flash.h"
+
+#include <esp_wifi.h>
+#include <esp_system.h>
+#include <esp_event.h>
+#include <esp_event_loop.h>
+#include <nvs_flash.h>
+#include <tcpip_adapter.h>
 
 using namespace std;
 
-#define DELAY_WifiScanner_MS					( ( uint16_t ) 5000 )
+#define DELAY_WIFISCANNER_MS					( ( uint16_t ) 5000 )
 #define mainWIFISCANNER_TASK_PRIORITY			( tskIDLE_PRIORITY + 2 )
 #define configWIFISCANNER_TASK_STACK_SIZE		( configMINIMAL_STACK_SIZE + 2024 )
+#define MAX_APS_LIST_SIZE						3
 
 #define GPIO_PIN_18   					( ( gpio_num_t ) 18 )
-#define GPIO_OUTPUT_PIN_SEL  			( 1ULL<<GPIO_PIN_18 )
+#define GPIO_PIN_19   					( ( gpio_num_t ) 19 )
+#define GPIO_OUTPUT_PIN_SEL  			( 1ULL<<GPIO_PIN_18 | 1ULL<<GPIO_PIN_19 )
 
-#define WATERMARK_ANALISIS				1
+#define WATERMARK_ANALISIS				0
+
+/* ######################################################################## */
+/* 						FUNCTIONS DECLARATIONS								*/
+/* ######################################################################## */
 
 static void prvWifiScannerTask( void * );
+static void prvWifiConnectionTask( void * );
 
-void start_wifi( void );
 void scan_wifi( string* );
+void connect_to_ap( uint8_t* , uint8_t* );
 
 void configure_led( void );
-void set_led_level( uint8_t );
+void set_led_level( gpio_num_t, uint8_t );
 
 extern "C"
 {
@@ -35,14 +47,28 @@ extern "C"
 /* 							      APP_MAIN									*/
 /* ######################################################################## */
 
+esp_err_t event_handler(void *ctx, system_event_t *event)
+{
+	if (event->event_id == SYSTEM_EVENT_STA_GOT_IP) 
+	{
+		printf("Our IP address is " IPSTR "\n",
+		IP2STR(&event->event_info.got_ip.ip_info.ip));
+		printf("We have now connected to a station and can do things...\n");
+	}
+	return ESP_OK;
+}
+
 void 
 app_main( void )
 {
-	TaskHandle_t wifiScannerTaskHandle;
+	TaskHandle_t wifiScannerTaskHandle, wifiConnectionTaskHandle;
 
     xTaskCreate( 	prvWifiScannerTask, "wifiScannerTask", 
 					configWIFISCANNER_TASK_STACK_SIZE, NULL, 
 					mainWIFISCANNER_TASK_PRIORITY, &wifiScannerTaskHandle );
+	// xTaskCreate( 	prvWifiConnectionTask, "wifiConnectionTask", 
+	// 				configWIFISCANNER_TASK_STACK_SIZE, NULL, 
+	// 				mainWIFISCANNER_TASK_PRIORITY, &wifiConnectionTaskHandle );
 }
 
 /* ######################################################################## */
@@ -59,18 +85,21 @@ prvWifiScannerTask( void *pvParameters )
 		uxHighWaterMark = ( ( UBaseType_t ) 0 );
 	#endif
 
-	configure_led();
-	start_wifi();
+	nvs_flash_init();
+	tcpip_adapter_init();
+	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+	ESP_ERROR_CHECK( esp_wifi_init( &cfg ) );
+	ESP_ERROR_CHECK( esp_wifi_set_storage( WIFI_STORAGE_RAM ) );
+	ESP_ERROR_CHECK( esp_wifi_set_mode( WIFI_MODE_STA ) );
+	ESP_ERROR_CHECK( esp_wifi_start() );
 
     for( ; ; )
 	{
 		cout << "WifiScanner -> Sleeping..." << endl;
-		vTaskDelay( DELAY_WifiScanner_MS / portTICK_PERIOD_MS);
+		vTaskDelay( DELAY_WIFISCANNER_MS / portTICK_PERIOD_MS);
 
 		cout << "WifiScanner -> Scanning..." << endl;
-		set_led_level( ( uint8_t ) 1 );
         scan_wifi( &scan_info );
-		set_led_level( ( uint8_t ) 0 );
 
 		cout << scan_info << endl;
 
@@ -83,36 +112,49 @@ prvWifiScannerTask( void *pvParameters )
 	vTaskDelete( NULL );
 }
 
+static void 
+prvWifiConnectionTask( void *pvParameters )
+{
+	#if ( WATERMARK_ANALISIS == 1 )	
+		UBaseType_t uxHighWaterMark;
+		uxHighWaterMark = ( ( UBaseType_t ) 0 );
+	#endif
+	
+	connect_to_ap( (uint8_t*) "TCLD55\0", (uint8_t*) "jujujuju\0" );
+
+    for( ; ; )
+	{
+		vTaskDelay( DELAY_WIFISCANNER_MS / portTICK_PERIOD_MS);
+		#if ( WATERMARK_ANALISIS == 1 )	
+			cout << "WifiConnection -> WaterMark = " << uxHighWaterMark << endl << endl;
+			uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
+		#endif
+    }
+
+	vTaskDelete( NULL );
+}
+
 /* ######################################################################## */
 /* 							      FUNCTIONS									*/
 /* ######################################################################## */
 
-void 
-start_wifi()
-{
-	nvs_flash_init();
-	tcpip_adapter_init();
-	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-	ESP_ERROR_CHECK( esp_wifi_init( &cfg ) );
-	ESP_ERROR_CHECK( esp_wifi_set_storage( WIFI_STORAGE_RAM ) );
-	ESP_ERROR_CHECK( esp_wifi_set_mode( WIFI_MODE_STA ) );
-	ESP_ERROR_CHECK( esp_wifi_start() );
-}
+/* WiFi */
 
 void
 scan_wifi( string *buffer )
 {
 	uint16_t scaned_aps, i;
+
 	*buffer = "";
 
 	#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 	wifi_scan_config_t scanConf = 
 	{
-	.ssid = NULL,
-	.bssid = NULL,
-	.channel = 0,
-	.show_hidden = 1,
-	.scan_type = WIFI_SCAN_TYPE_PASSIVE
+		.ssid = NULL,
+		.bssid = NULL,
+		.channel = 0,
+		.show_hidden = 1,
+		.scan_type = WIFI_SCAN_TYPE_PASSIVE
 	};
 	#pragma GCC diagnostic pop
 	ESP_ERROR_CHECK( esp_wifi_scan_start( &scanConf, true ) );
@@ -131,17 +173,56 @@ scan_wifi( string *buffer )
 	wifi_ap_record_t *list = ( wifi_ap_record_t * ) malloc ( sizeof( wifi_ap_record_t ) * scaned_aps);
 	ESP_ERROR_CHECK( esp_wifi_scan_get_ap_records( &scaned_aps, list ) );
 
-	for( i = 0; i < scaned_aps; i++ ) 
+	for( i = 0; i < MAX_APS_LIST_SIZE; i++ ) 
 	{
 		*buffer += "WifiScanner -> SSID = ";
 		*buffer += string( ( char* ) list[i].ssid );
 
-		if( i < scaned_aps - 1 )
+		if( i < MAX_APS_LIST_SIZE - 1 )
 			*buffer += "\n";
 	}
 
 	free(list);
 }
+
+void
+connect_to_ap( uint8_t* ssid_arg, uint8_t* password_arg )
+{
+	nvs_flash_init();
+	tcpip_adapter_init();
+	ESP_ERROR_CHECK( esp_event_loop_init( event_handler, NULL ) );
+	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+	ESP_ERROR_CHECK( esp_wifi_init( &cfg ) );
+	ESP_ERROR_CHECK( esp_wifi_set_storage( WIFI_STORAGE_RAM ) );
+	ESP_ERROR_CHECK( esp_wifi_set_mode( WIFI_MODE_STA ) );
+
+	#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+	#pragma GCC diagnostic ignored "-Wconversion-null"
+	wifi_config_t sta_config = 
+	{
+		.sta = 
+		{
+			ssid_arg[0],
+			password_arg[0],
+			NULL,
+			false,
+			NULL,
+			0,
+			0,
+			NULL,
+			NULL,
+			NULL
+		}
+	};
+	#pragma GCC diagnostic pop
+	#pragma GCC diagnostic pop	
+	
+	ESP_ERROR_CHECK( esp_wifi_set_config( WIFI_IF_STA, &sta_config ) );
+	ESP_ERROR_CHECK( esp_wifi_start() );
+	ESP_ERROR_CHECK( esp_wifi_connect() );
+}
+
+/* GPIO */
 
 void
 configure_led()
@@ -156,7 +237,7 @@ configure_led()
 }
 
 void
-set_led_level( uint8_t state )
+set_led_level( gpio_num_t pin, uint8_t state )
 {
-	gpio_set_level( GPIO_PIN_18, state );
+	gpio_set_level( pin, state );
 }
