@@ -21,8 +21,8 @@ start_intreceiver_task()
 
 	/* Task creation */
 	xTaskCreate( 	prvIntReceiverTask, "intReceiverTask", 
-					configINTRECEIVER_TASK_STACK_SIZE, NULL, 
-					mainINTRECEIVER_TASK_PRIORITY, NULL );
+					INTRECEIVER_TASK_STACK_SIZE, NULL, 
+					INTRECEIVER_TASK_PRIORITY, NULL );
 }
 
 void

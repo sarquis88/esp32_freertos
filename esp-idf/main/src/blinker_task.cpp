@@ -14,8 +14,8 @@ start_blinker_task()
 
 	/* Task creation */
 	xTaskCreate( 	prvBlinkerTask, "blinkerTask", 
-					configBLINKER_TASK_STACK_SIZE, NULL, 
-					mainBLINKER_TASK_PRIORITY, NULL );
+					BLINKER_TASK_STACK_SIZE, NULL, 
+					BLINKER_TASK_PRIORITY, NULL );
 }
 
 void 

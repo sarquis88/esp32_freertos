@@ -4,8 +4,8 @@ void
 start_wifiscanner_task()
 {
     xTaskCreate( 	prvWifiScannerTask, "wifiScannerTask", 
-					configWIFISCANNER_TASK_STACK_SIZE, NULL, 
-					mainWIFISCANNER_TASK_PRIORITY, NULL );
+					WIFISCANNER_TASK_STACK_SIZE, NULL, 
+					WIFISCANNER_TASK_PRIORITY, NULL );
 }
 
 void

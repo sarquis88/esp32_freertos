@@ -20,12 +20,6 @@ app_main( void )
 void
 safe_cout( string msg )
 {
-	if( cout_mutex == NULL )
-	{
-		cout_mutex = xSemaphoreCreateBinary();
-		xSemaphoreGive( cout_mutex );
-	}
-
 	xSemaphoreTake( cout_mutex, portMAX_DELAY );
 
 	cout << msg << endl;
@@ -38,6 +32,13 @@ start_deep_sleep()
 {
     esp_sleep_enable_ext1_wakeup( 1ULL<<GPIO_PIN_2, ESP_EXT1_WAKEUP_ANY_HIGH );
 	esp_deep_sleep_start();
+}
+
+void
+init_config()
+{
+		cout_mutex = xSemaphoreCreateBinary();
+		xSemaphoreGive( cout_mutex );
 }
 
 /*
