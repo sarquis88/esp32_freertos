@@ -13,7 +13,7 @@ start_intreceiver_task()
 	io_conf.pull_down_en 	= ( gpio_pulldown_t ) 0;
 	io_conf.intr_type 		= GPIO_INTR_NEGEDGE;
     io_conf.mode 			= GPIO_MODE_INPUT;
-    io_conf.pin_bit_mask 	= GPIO_INPUT_PIN_SEL;
+    io_conf.pin_bit_mask 	= 1ULL<<GPIO_PIN_19;
     io_conf.pull_up_en 		= ( gpio_pullup_t ) 1;
     ESP_ERROR_CHECK( gpio_config( &io_conf ) );
     ESP_ERROR_CHECK( gpio_install_isr_service( 0 ) );
@@ -45,8 +45,11 @@ prvIntReceiverTask( void *pvParameters )
 	{
         if( xQueueReceive( gpio_int_queue, &buffer, portMAX_DELAY ) ) 
 		{
-			message = "IntReceiver -> [] Interruption received";
-            safe_cout( message.insert( 16, to_string( c++ ) ) );
+			safe_cout( "Apagando..." );
+			start_deep_sleep();
+
+			// message = "IntReceiver -> [] Interruption received";
+            // safe_cout( message.insert( 16, to_string( c++ ) ) );
         }
     }
 

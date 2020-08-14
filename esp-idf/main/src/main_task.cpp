@@ -1,21 +1,43 @@
-#include "../include/common.h"
-#include "../include/int_receiver_task.h"
-#include "../include/wifi_scanner_task.h"
+#include "../include/main_task.h"
 
-extern "C"
-{
-	void app_main( void );
-}
+/* ######################################################################## */
 
-extern void start_intreceiver_task         	( void      );
-extern void start_wifiscanner_task         	( void      );
-extern void safe_cout						( string 	);
+static SemaphoreHandle_t cout_mutex = NULL;
+
+/* ######################################################################## */
 
 void 
 app_main( void )
 {
+	safe_cout( "Encendiendo..." );
+	
 	start_intreceiver_task();
-	start_wifiscanner_task();
+	start_blinker_task();
+}
+
+/* ######################################################################## */
+
+void
+safe_cout( string msg )
+{
+	if( cout_mutex == NULL )
+	{
+		cout_mutex = xSemaphoreCreateBinary();
+		xSemaphoreGive( cout_mutex );
+	}
+
+	xSemaphoreTake( cout_mutex, portMAX_DELAY );
+
+	cout << msg << endl;
+
+	xSemaphoreGive( cout_mutex );
+}
+
+void
+start_deep_sleep()
+{
+    esp_sleep_enable_ext1_wakeup( 1ULL<<GPIO_PIN_2, ESP_EXT1_WAKEUP_ANY_HIGH );
+	esp_deep_sleep_start();
 }
 
 /*
