@@ -1,11 +1,11 @@
 make:
-	./build.sh
+	./scripts/build.sh
 
 flash:
-	./flash.sh
+	./scripts/flash.sh
 
 monitor:
-	./monitor.sh
+	./scripts/monitor.sh
 
 clean:
 	rm -rf ./esp-idf/build/
