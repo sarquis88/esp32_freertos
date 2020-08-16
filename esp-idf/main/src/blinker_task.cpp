@@ -28,7 +28,7 @@ prvBlinkerTask( void *pvParameters )
     for(;;) 
 	{   
         gpio_set_level( GPIO_PIN_18, c % 2 );
-        vTaskDelay( DELAY_BLINKER_MS / portTICK_PERIOD_MS);
+        vTaskDelay( BLINKER_DELAY_MS / portTICK_PERIOD_MS);
         c++;
     }
 

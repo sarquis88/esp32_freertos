@@ -23,13 +23,13 @@ prvWifiScannerTask( void *pvParameter )
 
     for( ; ; )
 	{
-		safe_cout( "WifiScanner -> Sleeping..." );
-		vTaskDelay( DELAY_WIFISCANNER_MS / portTICK_PERIOD_MS);
+		safe_cout( "WifiScanner -> Sleeping...", false );
+		vTaskDelay( WIFISCANNER_DELAY_MS / portTICK_PERIOD_MS);
 
-		safe_cout( "WifiScanner -> Scanning..." );
+		safe_cout( "WifiScanner -> Scanning...", false );
         scan_wifi( &scan_info );
 
-		cout << scan_info << endl;
+		safe_cout( scan_info, false );
     }
 
 	vTaskDelete( NULL );
