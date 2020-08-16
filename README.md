@@ -1,4 +1,5 @@
 ## esp32_freertos
 
-* ```./flash``` build and flash the proyect
-* ```./monitor``` monitor the running esp32-app
+* ```make``` build the proyect
+* ```make flash``` build and flash the proyect
+* ```make monitor``` monitor the running esp32-app
