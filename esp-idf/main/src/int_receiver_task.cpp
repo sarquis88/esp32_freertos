@@ -36,10 +36,10 @@ void
 prvIntReceiverTask( void *pvParameters )
 {
 	uint32_t buffer;
-	uint8_t c;
-	string message;
+	//uint8_t c;
+	//string message;
 
-	c = 0;
+	//c = 0;
 
     for(;;) 
 	{

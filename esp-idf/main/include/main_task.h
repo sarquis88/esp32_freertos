@@ -36,6 +36,4 @@ extern void start_blinker_task         		( void      );
 extern void safe_cout						( string 	);
 extern void start_deep_sleep				( void 		);
 
-void safe_cout          ( string, bool	);
 void start_deep_sleep   ( void 			);
-void init_config		( void			);
