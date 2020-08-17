@@ -9,3 +9,6 @@
 void start_wificonnection_task      ( void                      );
 void prvWifiConnectionTask	        ( void *                    );
 esp_err_t event_handler             ( void *, system_event_t *  );
+void socket_config                  ( void                      );
+void send_message                   ( string                    );
+void wifi_config                    ( string, string            );

@@ -16,6 +16,11 @@
 #include <nvs_flash.h>
 #include <tcpip_adapter.h>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h> 
+
 using namespace std;
 
 #define GPIO_PIN_2                      ( ( gpio_num_t ) 2 		)
@@ -23,6 +28,8 @@ using namespace std;
 #define GPIO_PIN_19   					( ( gpio_num_t ) 19 	)
 
 #define BUFFER_SIZE						( 64 					)
+
+#define MAIN_LOGGING_TAG              	( ( const char * ) "Main" )
 
 extern "C"
 {
@@ -37,3 +44,4 @@ extern void safe_cout						( string 	);
 extern void start_deep_sleep				( void 		);
 
 void start_deep_sleep   ( void 			);
+void init_config		( void			);
