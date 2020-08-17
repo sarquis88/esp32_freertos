@@ -23,13 +23,13 @@ prvWifiScannerTask( void *pvParameter )
 
     for( ; ; )
 	{
-		safe_cout( "WifiScanner -> Sleeping...", false );
+		ESP_LOGI( WIFISCANNER_LOGGING_TAG, "Sleeping..." );
+
 		vTaskDelay( WIFISCANNER_DELAY_MS / portTICK_PERIOD_MS);
 
-		safe_cout( "WifiScanner -> Scanning...", false );
-        scan_wifi( &scan_info );
+		ESP_LOGI( WIFISCANNER_LOGGING_TAG, "Scanning..." );
 
-		safe_cout( scan_info, false );
+        scan_wifi( &scan_info );
     }
 
 	vTaskDelete( NULL );
@@ -56,9 +56,10 @@ scan_wifi( string *buffer )
 
 	esp_wifi_scan_get_ap_num( &scaned_aps );
 
-	*buffer += "WifiScanner -> Number of access points found: ";
+	*buffer += "Number of access points found: ";
 	*buffer += to_string( scaned_aps );
-	*buffer += "\n";
+
+	ESP_LOGI( WIFISCANNER_LOGGING_TAG, "%s", buffer->c_str() );
 
 	if ( scaned_aps == 0 ) 
 	{
@@ -70,8 +71,9 @@ scan_wifi( string *buffer )
 
 	for( i = 0; i < MAX_APS_LIST_SIZE; i++ ) 
 	{
-		*buffer += "WifiScanner -> SSID = ";
+		*buffer = "SSID = ";
 		*buffer += string( ( char* ) list[i].ssid );
+		ESP_LOGI( WIFISCANNER_LOGGING_TAG, "%s", buffer->c_str() );
 
 		if( i < MAX_APS_LIST_SIZE - 1 )
 			*buffer += "\n";

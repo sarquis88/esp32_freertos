@@ -45,7 +45,7 @@ prvIntReceiverTask( void *pvParameters )
 	{
         if( xQueueReceive( gpio_int_queue, &buffer, portMAX_DELAY ) ) 
 		{
-			safe_cout( "Apagando...", false );
+			ESP_LOGI( INTRECEIVER_LOGGING_TAG, "Apagando..." );
 			start_deep_sleep();
 
 			// message = "IntReceiver -> [] Interruption received";
