@@ -40,6 +40,7 @@ extern void start_intreceiver_task         	( void      );
 extern void start_wifiscanner_task         	( void      );
 extern void start_wificonnection_task      	( void      );
 extern void start_blinker_task         		( void      );
+extern void start_taskslist_task           	( void		);
 extern void safe_cout						( string 	);
 extern void start_deep_sleep				( void 		);
 

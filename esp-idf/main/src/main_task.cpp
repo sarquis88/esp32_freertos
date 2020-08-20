@@ -16,7 +16,10 @@ app_main( void )
 {	
 	init_config();
 
+	start_blinker_task();
+	start_intreceiver_task();
 	start_wificonnection_task();
+	start_taskslist_task();
 }
 
 /* ######################################################################## */
