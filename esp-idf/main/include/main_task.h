@@ -5,6 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
+#include "driver/i2c.h"
 
 #include <esp_sleep.h>
 #include <esp_wifi.h>
@@ -20,6 +21,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h> 
+
+#include "sdkconfig.h"
+
 
 using namespace std;
 
@@ -41,6 +45,7 @@ extern void start_wifiscanner_task         	( void      );
 extern void start_wificonnection_task      	( void      );
 extern void start_blinker_task         		( void      );
 extern void start_taskslist_task           	( void		);
+extern void start_i2c_task		           	( void		);
 extern void safe_cout						( string 	);
 extern void start_deep_sleep				( void 		);
 

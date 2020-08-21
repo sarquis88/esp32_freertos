@@ -16,10 +16,18 @@ app_main( void )
 {	
 	init_config();
 
-	start_blinker_task();
-	start_intreceiver_task();
-	start_wificonnection_task();
-	start_taskslist_task();
+	// start_blinker_task();
+	// start_intreceiver_task();
+	// start_wificonnection_task();
+	// start_taskslist_task();
+	// start_wifiscanner_task();
+
+	/* Starting I2C communication */
+	start_i2c_task();
+	
+	vTaskDelay( 10000 / portTICK_PERIOD_MS);
+
+	start_deep_sleep();
 }
 
 /* ######################################################################## */

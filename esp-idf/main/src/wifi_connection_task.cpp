@@ -22,7 +22,7 @@ prvWifiConnectionTask( void *pvParameters )
 {
 	wifi_ap_record_t ap_info;
 
-	wifi_config( string( "AbortoLegalYa" ), string( "mirifea123" ) );
+	wifi_config( string( "esp32" ), string( "computacion" ) );
 	socket_config();
 
     for( ; ; )
