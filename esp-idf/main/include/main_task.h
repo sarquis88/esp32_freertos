@@ -28,8 +28,13 @@
 using namespace std;
 
 #define GPIO_PIN_2                      ( ( gpio_num_t ) 2 		)
+#define GPIO_PIN_16   					( ( gpio_num_t ) 16 	)
+#define GPIO_PIN_17   					( ( gpio_num_t ) 17 	)
 #define GPIO_PIN_18   					( ( gpio_num_t ) 18 	)
 #define GPIO_PIN_19   					( ( gpio_num_t ) 19 	)
+#define GPIO_PIN_21   					( ( gpio_num_t ) 21 	)
+#define GPIO_PIN_25   					( ( gpio_num_t ) 25 	)
+#define GPIO_PIN_33   					( ( gpio_num_t ) 33 	)
 
 #define BUFFER_SIZE						( 64 					)
 
