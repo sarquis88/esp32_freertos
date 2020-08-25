@@ -12,3 +12,6 @@ config:
 
 clean:
 	rm -rf ./esp-idf/build/
+
+erase:
+	./scripts/erase_flash.sh
