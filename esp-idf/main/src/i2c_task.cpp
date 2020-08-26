@@ -9,7 +9,7 @@ writing_test()
     {
         string key = NVS_STORAGE_NAME + to_string( index );
 
-        write_to_nvs( string( NVS_STORAGE_NAME ), key, index * index * index );
+        nvs_write( string( NVS_STORAGE_NAME ), key, index * index * index );
     }
 }
 
@@ -23,7 +23,7 @@ reading_test()
     {
         string key = NVS_STORAGE_NAME + to_string( index );
 
-        ESP_ERROR_CHECK( read_from_nvs( string( NVS_STORAGE_NAME ), key, &reading ) );
+        ESP_ERROR_CHECK( nvs_read( string( NVS_STORAGE_NAME ), key, &reading ) );
 
         ESP_LOGI( I2C_LOGGING_TAG, "%s:%llu", key.c_str(), reading );
     }
@@ -42,25 +42,25 @@ start_i2c_task(void)
     if ( err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND ) 
     {
         ESP_LOGI( I2C_LOGGING_TAG, "%s", "NVS partition was truncated and needs to be erased. Retrying..." );
-        ESP_ERROR_CHECK(nvs_flash_erase());
+        ESP_ERROR_CHECK( nvs_flash_erase() );
         err = nvs_flash_init();
     }
     ESP_ERROR_CHECK( err );
     ESP_LOGI( I2C_LOGGING_TAG, "%s", "NVS configured" );
 
     /* Memory test */
-    writing_test();
-    reading_test();
+    //writing_test();
+    //reading_test();
 
     /* I2C config */
-    ESP_ERROR_CHECK( i2c_master_init() );
-    ESP_LOGI( I2C_LOGGING_TAG, "%s", "Master I2C configured" );
+    ESP_ERROR_CHECK( i2c_init() );
+    ESP_LOGI( I2C_LOGGING_TAG, "%s", "Configuration done" );
 
     /* Task creation */
 	xTaskCreate( 	prvI2CTask, "I2CTask", 
 					I2C_TASK_STACK_SIZE, NULL, 
 					I2C_TASK_PRIORITY, NULL );   
-    ESP_LOGI( I2C_LOGGING_TAG, "I2C task created" );    
+    ESP_LOGI( I2C_LOGGING_TAG, "Task created" );    
 }
 
 void 
@@ -70,51 +70,87 @@ prvI2CTask( void *pvParameters )
         UBaseType_t uxHighWaterMark;
     #endif
 
-    uint8_t reception_buffer[ BUFFER_SIZE ];
-    memset( reception_buffer, 0, BUFFER_SIZE );
-
-    uint32_t buffer_index = 0;
+    vector< string > reg_names = { "AX_L", "AX_H", "AY_L", "AY_H", "AZ_L", "AZ_H" };
+    vector< string > dir_names = { "AX", "AY", "AZ" };
+    vector< uint8_t > reg_values = { REG_AX_L, REG_AX_H, REG_AY_L, REG_AY_H, REG_AZ_L, REG_AZ_H };
+    
+    uint8_t *received_values_8bits = (uint8_t*)malloc( reg_values.size() * sizeof(uint8_t) );
+    uint16_t **received_values_16bits = (uint16_t**)malloc( (reg_values.size() / 2) * sizeof(uint16_t*) );
 
     for(;;) 
-	{           
-        ESP_LOGI( I2C_LOGGING_TAG, "%s", "Receiving data..." );
-        i2c_master_read_slave( I2C_NUM_0, reception_buffer, BUFFER_SIZE );
+	{     
+        uint8_t i;
 
-        if( (char*)reception_buffer == NULL || (char)reception_buffer[0] == '\0' ) // no more data
+        /* Data request and reception */
+        for( i = 0; i < reg_values.size(); i ++ )
         {
-                ESP_LOGI( I2C_LOGGING_TAG, "%s", "Empty data received" );
-                ESP_LOGI( I2C_LOGGING_TAG, "%s", "Entering deep sleep mode" );
-                start_deep_sleep();
+            ESP_LOGI( I2C_LOGGING_TAG, "Requesting for register %s (%d)...", reg_names.at( i ).c_str(), reg_values.at( i ) );
+            i2c_ask_mpu_register( reg_values.at( i ) );
+            ESP_LOGI( I2C_LOGGING_TAG, "%s", "Request done" );
+
+            vTaskDelay( I2C_DELAY_MS / portTICK_PERIOD_MS);
+
+            ESP_LOGI( I2C_LOGGING_TAG, "%s", "Receiving register..." );
+            i2c_receive_byte( received_values_8bits + i * sizeof(uint8_t) );
+            ESP_LOGI( I2C_LOGGING_TAG, "%s", "Reception done" );
+
+            vTaskDelay( I2C_DELAY_MS / portTICK_PERIOD_MS);
         }
-        else                                // data incoming
+
+        /* Log received data in 8 bits */
+        string values_log = "Received values:\n";
+        for( i = 0; i < reg_values.size(); i ++ )
         {
-                ESP_LOGI(   I2C_LOGGING_TAG, "Data number %d received: %s", 
-                            buffer_index, (char*)reception_buffer );
+            values_log += "\t\t\t";
+            values_log += string( reg_names.at( i ) );
+            values_log += " = ";
+            values_log += to_string( received_values_8bits[ i ] );
+            if( i < reg_values.size() - 1 )
+            {
+                values_log += "\n";
+            }
+        }
+        ESP_LOGI( I2C_LOGGING_TAG, "%s", values_log.c_str() );
 
-                uint8_t data = (uint8_t) strtol( (char*)reception_buffer, NULL, 10 );
+        /* Parse and log received data in 16 bits */
+        received_values_16bits[ 0 ] = (uint16_t*) ( received_values_8bits ); 
+        received_values_16bits[ 1 ] = (uint16_t*) ( received_values_8bits + sizeof(uint16_t) * 1 );
+        received_values_16bits[ 2 ] = (uint16_t*) ( received_values_8bits + sizeof(uint16_t) * 2 );
+        values_log = "Parsed values:\n";
+        for( i = 0; i < reg_values.size() / 2; i ++ )
+        {
+            values_log += "\t\t\t";
+            values_log += string( dir_names.at( i ) );
+            values_log += " = ";
+            values_log += to_string( *received_values_16bits[ i ] );
+            if( i < reg_values.size() / 2 - 1 )
+            {
+                values_log += "\n";
+            }
+        }
+        ESP_LOGI( I2C_LOGGING_TAG, "%s", values_log.c_str() );
 
-                if( data == 0 )
-                {
-                    ESP_LOGI( I2C_LOGGING_TAG, "%s", "Not acceptable data received" );
-                    ESP_LOGI( I2C_LOGGING_TAG, "%s", "Entering deep sleep mode" );
-                    start_deep_sleep();
-                }
-                else
-                    buffer_index++;
-        }        
-        
+        /* Log watermark task if desired */
         #if I2C_TASK_WATERMARK == 1
             uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
             ESP_LOGI( I2C_LOGGING_TAG, "Task WaterMark: %d", uxHighWaterMark );
         #endif
+
+        /* Sleep */
+        ESP_LOGI( I2C_LOGGING_TAG, "%s", "Entering deep-sleep mode..." );
+        start_deep_sleep();
     }
 
+    free( received_values_8bits );
+    free( received_values_16bits );
 	vTaskDelete( NULL );
 }
 
 esp_err_t
-i2c_master_init()
+i2c_init()
 {
+    esp_err_t err = ESP_OK;
+
     /* I2C config */
     i2c_config_t i2c_conf;
     i2c_conf.mode               = I2C_MODE_MASTER;
@@ -123,25 +159,114 @@ i2c_master_init()
     i2c_conf.scl_io_num         = GPIO_PIN_19;
     i2c_conf.scl_pullup_en      = GPIO_PULLUP_ENABLE;
     i2c_conf.master.clk_speed   = I2C_MASTER_FREQ_HZ;
-    i2c_param_config( I2C_NUM_0, &i2c_conf );
-
-    return i2c_driver_install( I2C_NUM_0, i2c_conf.mode, 0, 0, 0 );
+    
+    err = i2c_param_config( I2C_NUM_0, &i2c_conf );
+    if( err != ESP_OK )
+        return err;
+    else
+        return i2c_driver_install( I2C_NUM_0, i2c_conf.mode, 0, 0, 0 );
 }
 
 esp_err_t
-i2c_master_read_slave( i2c_port_t i2c_num, uint8_t *reception_buffer, size_t size ) 
+i2c_receive_byte( uint8_t *value_p ) 
 {
-    /* Master reading */
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte( cmd, (I2C_SLAVE_ADDR << 1) | 1, true );
-    i2c_master_read( cmd, reception_buffer, size - 1, I2C_MASTER_ACK );
-    i2c_master_read_byte( cmd, reception_buffer + size - 1, I2C_MASTER_NACK );
-    i2c_master_stop(cmd);
-    esp_err_t ret = i2c_master_cmd_begin( i2c_num, cmd, 1000 / portTICK_RATE_MS );
-    i2c_cmd_link_delete( cmd );
+    esp_err_t err = ESP_OK;
 
-    return ret;
+	// Create I2C command buffer
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+
+	// Queue start signal
+	err = i2c_master_start( cmd );
+    if( err != ESP_OK )
+    {
+        goto esc;
+    }
+
+	// Queue the slave address (operation = read)
+	err = i2c_master_write_byte( cmd, ( I2C_SLAVE_ADDR << 1 ) | I2C_MASTER_READ, true);
+    if( err != ESP_OK )
+    {
+        goto esc;
+    }
+
+	// Read from the bus
+	err = i2c_master_read_byte( cmd, value_p, I2C_MASTER_ACK );
+    if( err != ESP_OK )
+    {
+        goto esc;
+    }
+
+	// Queue the master stop command
+	err = i2c_master_stop( cmd );
+    if( err != ESP_OK )
+    {
+        goto esc;
+    }
+
+	// Execute the command queue
+	err = i2c_master_cmd_begin(	I2C_NUM_0, cmd,	portTICK_PERIOD_MS );
+    if( err != ESP_OK )
+    {
+        goto esc;
+    }
+
+    esc:
+
+	// Destroy (recycle) command queue
+	i2c_cmd_link_delete( cmd );
+
+	return err;
+}
+
+esp_err_t
+i2c_ask_mpu_register( uint8_t reg ) 
+{
+    esp_err_t err = ESP_OK;
+
+	// Create I2C command buffer
+	i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+
+	// Queue start signal
+	err = i2c_master_start( cmd );
+    if( err != ESP_OK )
+    {
+        goto esc;
+    }
+
+	// Queue adjusted slave address (operation = write)
+	err = i2c_master_write_byte( cmd, ( I2C_SLAVE_ADDR << 1 ) | I2C_MASTER_WRITE, true);
+    if( err != ESP_OK )
+    {
+        goto esc;
+    }
+
+	// Queue the register
+	err = i2c_master_write_byte( cmd, reg, true );
+    if( err != ESP_OK )
+    {
+        goto esc;
+    }
+
+	// Queue stop command
+	err = i2c_master_stop( cmd );
+    if( err != ESP_OK )
+    {
+        goto esc;
+    }
+
+	// Execute the command queue
+	err = i2c_master_cmd_begin( I2C_NUM_0, cmd, portTICK_PERIOD_MS );
+    if( err != ESP_OK )
+    {
+        goto esc;
+    }
+
+    esc:
+
+	// Destroy (recycle) command queue
+	i2c_cmd_link_delete( cmd );
+
+    return err;
 }
 
 void
@@ -152,7 +277,7 @@ start_deep_sleep()
 }
 
 esp_err_t
-read_from_nvs( string storage, string key, uint64_t *value )
+nvs_read( string storage, string key, uint64_t *value )
 {
     /* Open nvs */
     nvs_handle_t my_handle;
@@ -168,7 +293,7 @@ read_from_nvs( string storage, string key, uint64_t *value )
 }
 
 esp_err_t
-write_to_nvs( string storage, string key, uint64_t value )
+nvs_write( string storage, string key, uint64_t value )
 {
     /* Open nvs */
     nvs_handle_t my_handle;

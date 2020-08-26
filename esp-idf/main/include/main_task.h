@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <iostream>
 #include <cstring>
+#include <vector>
+#include <cmath>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
