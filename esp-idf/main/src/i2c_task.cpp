@@ -48,13 +48,22 @@ start_i2c_task(void)
     ESP_ERROR_CHECK( err );
     ESP_LOGI( I2C_LOGGING_TAG, "%s", "NVS configured" );
 
-    /* Memory test */
-    //writing_test();
-    //reading_test();
-
     /* I2C config */
     ESP_ERROR_CHECK( i2c_init() );
-    ESP_LOGI( I2C_LOGGING_TAG, "%s", "Configuration done" );
+    ESP_LOGI( I2C_LOGGING_TAG, "%s", "Bus configured" );
+
+    /* MPU config */
+    ESP_ERROR_CHECK( mpu_send_byte( REG_INT_EN,     0b00000001, true ) ); // enable data-ready interrupt
+    ESP_ERROR_CHECK( mpu_send_byte( REG_PWR_MGMT_1, 0b00001000, true ) ); // disable sleep mode and tmp sensor
+    ESP_ERROR_CHECK( mpu_send_byte( REG_PWR_MGMT_2, 0b00000111, true ) ); // disable gyro 
+    ESP_ERROR_CHECK( mpu_send_byte( REG_ACCEL_CONF, 0b00011000, true ) ); // config accelerometer sensibility
+    ESP_ERROR_CHECK( mpu_send_byte( REG_CONFIG,     0b00000110, true ) ); // config low-pass filter
+    ESP_LOGI( I2C_LOGGING_TAG, "%s", "MPU registers configured" );
+
+    #if I2C_TASK_CHECK_REGS == 1
+        /* Print all MPU registers */
+        ESP_ERROR_CHECK( mpu_check_reg_values() );
+    #endif
 
     /* Task creation */
 	xTaskCreate( 	prvI2CTask, "I2CTask", 
@@ -81,42 +90,30 @@ prvI2CTask( void *pvParameters )
 	{     
         uint8_t i;
 
+        /* Initalization of arrays */
+        for( i = 0; i < reg_values.size(); i++ )
+        {
+            received_values_8bits[ i ] = 0;
+            if( i % 2 == 0)
+            {
+                received_values_16bits[ i / 2 ] = 0;
+            }
+        }
+
+
         /* Data request and reception */
         for( i = 0; i < reg_values.size(); i ++ )
         {
-            ESP_LOGI( I2C_LOGGING_TAG, "Requesting for register %s (%d)...", reg_names.at( i ).c_str(), reg_values.at( i ) );
-            i2c_ask_mpu_register( reg_values.at( i ) );
-            ESP_LOGI( I2C_LOGGING_TAG, "%s", "Request done" );
-
-            vTaskDelay( I2C_DELAY_MS / portTICK_PERIOD_MS);
-
-            ESP_LOGI( I2C_LOGGING_TAG, "%s", "Receiving register..." );
-            i2c_receive_byte( received_values_8bits + i * sizeof(uint8_t) );
-            ESP_LOGI( I2C_LOGGING_TAG, "%s", "Reception done" );
-
-            vTaskDelay( I2C_DELAY_MS / portTICK_PERIOD_MS);
+            ESP_LOGI( I2C_LOGGING_TAG, "MPU request register %s (%d)...", reg_names.at( i ).c_str(), reg_values.at( i ) );
+            mpu_send_byte( reg_values.at( i ), 0, false );
+            mpu_receive_byte( received_values_8bits + i * sizeof(uint8_t) );
         }
-
-        /* Log received data in 8 bits */
-        string values_log = "Received values:\n";
-        for( i = 0; i < reg_values.size(); i ++ )
-        {
-            values_log += "\t\t\t";
-            values_log += string( reg_names.at( i ) );
-            values_log += " = ";
-            values_log += to_string( received_values_8bits[ i ] );
-            if( i < reg_values.size() - 1 )
-            {
-                values_log += "\n";
-            }
-        }
-        ESP_LOGI( I2C_LOGGING_TAG, "%s", values_log.c_str() );
 
         /* Parse and log received data in 16 bits */
         received_values_16bits[ 0 ] = (uint16_t*) ( received_values_8bits ); 
         received_values_16bits[ 1 ] = (uint16_t*) ( received_values_8bits + sizeof(uint16_t) * 1 );
         received_values_16bits[ 2 ] = (uint16_t*) ( received_values_8bits + sizeof(uint16_t) * 2 );
-        values_log = "Parsed values:\n";
+        string values_log = "Received values:\n";
         for( i = 0; i < reg_values.size() / 2; i ++ )
         {
             values_log += "\t\t\t";
@@ -137,8 +134,9 @@ prvI2CTask( void *pvParameters )
         #endif
 
         /* Sleep */
-        ESP_LOGI( I2C_LOGGING_TAG, "%s", "Entering deep-sleep mode..." );
-        start_deep_sleep();
+        vTaskDelay( I2C_DELAY_MS / portTICK_PERIOD_MS);
+        //ESP_LOGI( I2C_LOGGING_TAG, "%s", "Entering deep-sleep mode..." );
+        //start_deep_sleep();
     }
 
     free( received_values_8bits );
@@ -168,7 +166,7 @@ i2c_init()
 }
 
 esp_err_t
-i2c_receive_byte( uint8_t *value_p ) 
+mpu_receive_byte( uint8_t *value_p ) 
 {
     esp_err_t err = ESP_OK;
 
@@ -204,7 +202,7 @@ i2c_receive_byte( uint8_t *value_p )
     }
 
 	// Execute the command queue
-	err = i2c_master_cmd_begin(	I2C_NUM_0, cmd,	portTICK_PERIOD_MS );
+	err = i2c_master_cmd_begin(	I2C_NUM_0, cmd,	portMAX_DELAY );
     if( err != ESP_OK )
     {
         goto esc;
@@ -219,7 +217,7 @@ i2c_receive_byte( uint8_t *value_p )
 }
 
 esp_err_t
-i2c_ask_mpu_register( uint8_t reg ) 
+mpu_send_byte( uint8_t reg, uint8_t value, bool write ) 
 {
     esp_err_t err = ESP_OK;
 
@@ -247,6 +245,16 @@ i2c_ask_mpu_register( uint8_t reg )
         goto esc;
     }
 
+    // Queue data (if write)
+	if ( write )
+    {
+        err = i2c_master_write_byte( cmd, value, true ); 
+		if( err != ESP_OK )
+        {
+            goto esc;
+        }
+	} 
+
 	// Queue stop command
 	err = i2c_master_stop( cmd );
     if( err != ESP_OK )
@@ -272,7 +280,8 @@ i2c_ask_mpu_register( uint8_t reg )
 void
 start_deep_sleep()
 {
-    esp_sleep_enable_ext1_wakeup( 1ULL<<GPIO_PIN_2, ESP_EXT1_WAKEUP_ANY_HIGH );
+    ESP_ERROR_CHECK( rtc_gpio_pulldown_en( GPIO_PIN_2 ) );
+    ESP_ERROR_CHECK( esp_sleep_enable_ext0_wakeup( GPIO_PIN_2, 1 ) );
 	esp_deep_sleep_start();
 }
 
@@ -307,6 +316,25 @@ nvs_write( string storage, string key, uint64_t value )
             err = nvs_commit( my_handle );
         }
         nvs_close( my_handle );
+    }
+
+    return err;
+}
+
+esp_err_t
+mpu_check_reg_values()
+{
+    uint8_t value = 0;
+    uint8_t reg;
+    esp_err_t err = ESP_OK;
+
+    for( reg = 13; reg < 118; reg++ )
+    {
+        err = mpu_send_byte( reg, 0, false );
+        if( err != ESP_OK )
+            return err;
+        mpu_receive_byte( &value );
+        ESP_LOGI( I2C_LOGGING_TAG, "[%d] = %d", reg, value );
     }
 
     return err;

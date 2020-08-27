@@ -8,6 +8,7 @@
 #include "freertos/task.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
+#include "driver/rtc_io.h"
 
 #include <esp_sleep.h>
 #include <esp_wifi.h>
