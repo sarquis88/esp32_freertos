@@ -38,6 +38,7 @@ void
 start_i2c_task(void)
 {
     /* NVS config */
+    /*
     esp_err_t err = nvs_flash_init();
     if ( err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND ) 
     {
@@ -47,18 +48,15 @@ start_i2c_task(void)
     }
     ESP_ERROR_CHECK( err );
     ESP_LOGI( I2C_LOGGING_TAG, "%s", "NVS configured" );
+    */
 
     /* I2C config */
     ESP_ERROR_CHECK( i2c_init() );
     ESP_LOGI( I2C_LOGGING_TAG, "%s", "Bus configured" );
 
     /* MPU config */
-    ESP_ERROR_CHECK( mpu_send_byte( REG_INT_EN,     0b00000001, true ) ); // enable data-ready interrupt
-    ESP_ERROR_CHECK( mpu_send_byte( REG_PWR_MGMT_1, 0b00001000, true ) ); // disable sleep mode and tmp sensor
-    ESP_ERROR_CHECK( mpu_send_byte( REG_PWR_MGMT_2, 0b00000111, true ) ); // disable gyro 
-    ESP_ERROR_CHECK( mpu_send_byte( REG_ACCEL_CONF, 0b00011000, true ) ); // config accelerometer sensibility
-    ESP_ERROR_CHECK( mpu_send_byte( REG_CONFIG,     0b00000110, true ) ); // config low-pass filter
-    ESP_LOGI( I2C_LOGGING_TAG, "%s", "MPU registers configured" );
+    ESP_ERROR_CHECK( mpu_init() );
+    ESP_LOGI( I2C_LOGGING_TAG, "%s", "MPU configured" );
 
     #if I2C_TASK_CHECK_REGS == 1
         /* Print all MPU registers */
@@ -82,15 +80,25 @@ prvI2CTask( void *pvParameters )
     vector< string > reg_names = { "AX_L", "AX_H", "AY_L", "AY_H", "AZ_L", "AZ_H" };
     vector< string > dir_names = { "AX", "AY", "AZ" };
     vector< uint8_t > reg_values = { REG_AX_L, REG_AX_H, REG_AY_L, REG_AY_H, REG_AZ_L, REG_AZ_H };
-    
-    uint8_t *received_values_8bits = (uint8_t*)malloc( reg_values.size() * sizeof(uint8_t) );
-    uint16_t **received_values_16bits = (uint16_t**)malloc( (reg_values.size() / 2) * sizeof(uint16_t*) );
+
+    //uint16_t fifo_count = 0;    
+    int8_t *received_values_8bits      = (int8_t*)malloc( reg_values.size() * sizeof(int8_t) );
+    int16_t **received_values_16bits   = (int16_t**)malloc( (reg_values.size() / 2) * sizeof(int16_t*) );
+
+    /* Get FIFO count */
+    //ESP_ERROR_CHECK( mpu_get_fifo_count( &fifo_count ) );
+    //ESP_LOGI( I2C_LOGGING_TAG, "Fifo count = %d", fifo_count );
 
     for(;;) 
 	{     
+        /* Variables declaration */
+        //uint16_t count;
         uint8_t i;
+        float module;
+        char module_str[ BUFFER_SIZE ];
+        string data_log;
 
-        /* Initalization of arrays */
+        /* Initialization of arrays */
         for( i = 0; i < reg_values.size(); i++ )
         {
             received_values_8bits[ i ] = 0;
@@ -100,34 +108,43 @@ prvI2CTask( void *pvParameters )
             }
         }
 
-
         /* Data request and reception */
         for( i = 0; i < reg_values.size(); i ++ )
         {
             ESP_LOGI( I2C_LOGGING_TAG, "MPU request register %s (%d)...", reg_names.at( i ).c_str(), reg_values.at( i ) );
             mpu_send_byte( reg_values.at( i ), 0, false );
-            mpu_receive_byte( received_values_8bits + i * sizeof(uint8_t) );
+            mpu_receive_byte( (uint8_t*)received_values_8bits + i * sizeof(uint8_t) );
         }
 
-        /* Parse and log received data in 16 bits */
-        received_values_16bits[ 0 ] = (uint16_t*) ( received_values_8bits ); 
-        received_values_16bits[ 1 ] = (uint16_t*) ( received_values_8bits + sizeof(uint16_t) * 1 );
-        received_values_16bits[ 2 ] = (uint16_t*) ( received_values_8bits + sizeof(uint16_t) * 2 );
-        string values_log = "Received values:\n";
+        /* Convert 8-bit received data into 16-bit */
+        received_values_16bits[ 0 ] = (int16_t*) ( received_values_8bits ); 
+        received_values_16bits[ 1 ] = (int16_t*) ( received_values_8bits + sizeof(int16_t) * 1 );
+        received_values_16bits[ 2 ] = (int16_t*) ( received_values_8bits + sizeof(int16_t) * 2 );
+
+        /* Calculate data module */
+        module = 0;
         for( i = 0; i < reg_values.size() / 2; i ++ )
         {
-            values_log += "\t\t\t";
-            values_log += string( dir_names.at( i ) );
-            values_log += " = ";
-            values_log += to_string( *received_values_16bits[ i ] );
-            if( i < reg_values.size() / 2 - 1 )
-            {
-                values_log += "\n";
-            }
+            module += pow( (double)*received_values_16bits[ i ], 2 );
         }
-        ESP_LOGI( I2C_LOGGING_TAG, "%s", values_log.c_str() );
+        module = sqrt( module );
 
-        /* Log watermark task if desired */
+        /* Log data */
+        sprintf( module_str, "%0.f", module );
+        data_log = "Received values:\n";
+        for( i = 0; i < reg_values.size() / 2; i ++ )
+        {
+            data_log += "\t\t\t";
+            data_log += string( dir_names.at( i ) );
+            data_log += "\t= ";
+            data_log += to_string( *received_values_16bits[ i ] );
+            data_log += "\n";
+        }
+        data_log += "\t\t\t|A|\t= ";
+        data_log += string( module_str );
+        ESP_LOGI( I2C_LOGGING_TAG, "%s", data_log.c_str() );
+
+        /* Log watermark task */
         #if I2C_TASK_WATERMARK == 1
             uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
             ESP_LOGI( I2C_LOGGING_TAG, "Task WaterMark: %d", uxHighWaterMark );
@@ -135,8 +152,8 @@ prvI2CTask( void *pvParameters )
 
         /* Sleep */
         vTaskDelay( I2C_DELAY_MS / portTICK_PERIOD_MS);
-        //ESP_LOGI( I2C_LOGGING_TAG, "%s", "Entering deep-sleep mode..." );
-        //start_deep_sleep();
+        // ESP_LOGI( I2C_LOGGING_TAG, "%s", "Entering deep-sleep mode..." );
+        // start_deep_sleep();
     }
 
     free( received_values_8bits );
@@ -336,6 +353,66 @@ mpu_check_reg_values()
         mpu_receive_byte( &value );
         ESP_LOGI( I2C_LOGGING_TAG, "[%d] = %d", reg, value );
     }
+
+    return err;
+}
+
+esp_err_t
+mpu_init()
+{    
+    esp_err_t err;
+
+    err = mpu_send_byte( REG_INT_ENABLE,    0b00000001, true ); // enable data-ready interrupt
+    if( err != ESP_OK )
+        return err;
+
+    err = mpu_send_byte( REG_INT_PIN_CFG,   0b00010000, true ); // clear int when reading
+    if( err != ESP_OK )
+        return err;
+
+    err = mpu_send_byte( REG_PWR_MGMT_2,    0b00000111, true ); // disable gyro 
+    if( err != ESP_OK )
+        return err;
+
+    err = mpu_send_byte( REG_ACCEL_CONF,    0b00000000, true ); // config accelerometer sensibility
+    if( err != ESP_OK )
+        return err;
+
+    err = mpu_send_byte( REG_CONFIG,        0b00000110, true ); // config low-pass filter
+    if( err != ESP_OK )
+        return err;
+
+    err = mpu_send_byte( REG_SMPRT_DIV,     0b11111111, true ); // config sample-rate divider
+    if( err != ESP_OK )
+        return err;
+
+    err = mpu_send_byte( REG_FIFO_EN,       0b00001000, true ); // enable fifo for accelerometer
+    if( err != ESP_OK )
+        return err;
+
+    err = mpu_send_byte( REG_PWR_MGMT_1,    0b00001000, true ); // disable sleep mode and tmp sensor
+    if( err != ESP_OK )
+        return err;
+
+    return err;
+}
+
+esp_err_t
+mpu_get_fifo_count( uint16_t *count_p )
+{
+    esp_err_t err;
+
+    err = mpu_send_byte( REG_FIFO_COUNT_H, 0, false );
+    if( err != ESP_OK )
+        return err;
+    else
+        mpu_receive_byte( (uint8_t*) &count_p );
+    
+    err = mpu_send_byte( REG_FIFO_COUNT_L, 0, false );
+    if( err != ESP_OK )
+        return err;
+    else
+        mpu_receive_byte( (uint8_t*) &count_p + sizeof(uint8_t) );
 
     return err;
 }
