@@ -1,6 +1,6 @@
 #include "main_task.h"
 
-#define ACCELEROMETER_TASK_DELAY_MS				( ( uint16_t ) 3000                 )
+#define ACCELEROMETER_TASK_DELAY_MS				( ( uint16_t ) 1000                 )
 #define ACCELEROMETER_TASK_PRIORITY			    ( tskIDLE_PRIORITY + 2              )
 #define ACCELEROMETER_TASK_STACK_SIZE		    ( configMINIMAL_STACK_SIZE + 3072   ) 
 #define ACCELEROMETER_LOGGING_TAG               ( ( const char* ) "Accelerometer"   )
@@ -14,6 +14,9 @@
 
 #define NVS_MAX_INDEX               ( 629                               )
 #define NVS_STORAGE_NAME            ( ( const char* ) "mpudata"         )
+#define NVS_INDEX_KEY               ( ( const char* ) "index"           )
+
+#define MPU_ZERO_VALUE              ( ( uint64_t ) 16568                )
 
 #define REG_AX_L                0x3C
 #define REG_AX_H                0x3B
@@ -38,9 +41,10 @@
 void prvAccelerometerTask       ( void *                        );
 void start_accelerometer_task   ( void                          );
 
-esp_err_t nvs_init              ( void                          );
-esp_err_t nvs_read              ( string, string, uint64_t*     );
-esp_err_t nvs_write             ( string, string, uint64_t      );
+esp_err_t nvs_init              ( void                                  );
+esp_err_t nvs_read              ( const char*, const char*, uint64_t*   );
+esp_err_t nvs_write             ( const char*, const char*, uint64_t    );
+esp_err_t nvs_check_values      ( void                                  );
 
 esp_err_t i2c_init              ( void                          );
 
@@ -49,4 +53,7 @@ esp_err_t mpu_receive_byte      ( uint8_t *                     );
 esp_err_t mpu_send_byte         ( uint8_t, uint8_t, bool        );
 esp_err_t mpu_check_reg_values  ( void                          );
 esp_err_t mpu_get_fifo_count    ( uint16_t *                    );
+esp_err_t mpu_get_fifo_value    ( uint8_t *                     );
+
+void start_deep_sleep_mode      ( void                          );
 
