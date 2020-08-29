@@ -1,12 +1,11 @@
 #include "main_task.h"
 
-#define I2C_DELAY_MS				( ( uint16_t ) 3000                 )
-#define I2C_TASK_PRIORITY			( tskIDLE_PRIORITY + 2              )
-#define I2C_TASK_STACK_SIZE		    ( configMINIMAL_STACK_SIZE + 3072   ) // *4 -> bytes
-#define I2C_LOGGING_TAG             ( ( const char* ) "I2C"             )
-#define I2C_TASK_WATERMARK          ( 0                                 )
-#define I2C_TASK_CHECK_REGS         ( 0                                 )
-#define I2C_TASK_LOGGING            ( 0                                 )
+#define ACCELEROMETER_TASK_DELAY_MS				( ( uint16_t ) 3000                 )
+#define ACCELEROMETER_TASK_PRIORITY			    ( tskIDLE_PRIORITY + 2              )
+#define ACCELEROMETER_TASK_STACK_SIZE		    ( configMINIMAL_STACK_SIZE + 3072   ) 
+#define ACCELEROMETER_LOGGING_TAG               ( ( const char* ) "Accelerometer"   )
+#define ACCELEROMETER_TASK_WATERMARK            ( 0                                 )
+#define ACCELEROMETER_TASK_LOGGING              ( 1                                 )
 
 #define I2C_MASTER_FREQ_HZ          ( ( uint32_t ) 500000   )
 #define I2C_SLAVE_ADDR              ( 0x68                  ) 
@@ -36,9 +35,10 @@
 #define REG_CONFIG              0x1A
 #define REG_SMPRT_DIV           0x19
 
-void prvI2CTask                 ( void *                        );
-void start_i2c_task             ( void                          );
+void prvAccelerometerTask       ( void *                        );
+void start_accelerometer_task   ( void                          );
 
+esp_err_t nvs_init              ( void                          );
 esp_err_t nvs_read              ( string, string, uint64_t*     );
 esp_err_t nvs_write             ( string, string, uint64_t      );
 

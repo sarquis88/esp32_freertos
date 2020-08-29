@@ -14,8 +14,8 @@
 void 
 app_main( void )
 {	
-	/* Starts I2C communication */
-	start_i2c_task();
+	/* Starts accelerometer senses */
+	start_accelerometer_task();
 
 	#if TASKSLIST_TASK_ON == 1
 		/* Starts tasks listing */

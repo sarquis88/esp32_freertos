@@ -1,4 +1,4 @@
-#include "../include/i2c_task.h"
+#include "../include/accelerometer_task.h"
 
 void
 writing_test()
@@ -25,60 +25,58 @@ reading_test()
 
         ESP_ERROR_CHECK( nvs_read( string( NVS_STORAGE_NAME ), key, &reading ) );
 
-        ESP_LOGI( I2C_LOGGING_TAG, "%s:%llu", key.c_str(), reading );
+        #if ACCELEROMETER_TASK_LOGGING == 1
+        ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s:%llu", key.c_str(), reading );
+        #endif
     }
 
+    #if ACCELEROMETER_TASK_LOGGING == 1
     nvs_stats_t nvs_stats;
     nvs_get_stats( NULL, &nvs_stats);
-    ESP_LOGI(   I2C_LOGGING_TAG, "NVS stats: \n\t\tUsedEntries \t= %d\n\t\tFreeEntries \t= %d (126 unusable) \n\t\tAllEntries \t= %d",
+    ESP_LOGI(   ACCELEROMETER_LOGGING_TAG, "NVS stats: \n\t\tUsedEntries \t= %d\n\t\tFreeEntries \t= %d (126 unusable) \n\t\tAllEntries \t= %d",
                 nvs_stats.used_entries, nvs_stats.free_entries, nvs_stats.total_entries );
+    #endif
 }
 
 void 
-start_i2c_task(void)
+start_accelerometer_task( void )
 {
-    /* NVS config */
-    /*
-    esp_err_t err = nvs_flash_init();
-    if ( err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND ) 
-    {
-        ESP_LOGI( I2C_LOGGING_TAG, "%s", "NVS partition was truncated and needs to be erased. Retrying..." );
-        ESP_ERROR_CHECK( nvs_flash_erase() );
-        err = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK( err );
-    ESP_LOGI( I2C_LOGGING_TAG, "%s", "NVS configured" );
-    */
+    /* NVS init */
+    ESP_ERROR_CHECK( nvs_init() );
+    #if ACCELEROMETER_TASK_LOGGING == 1
+    ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "NVS initialized" );
+    #endif
 
-    /* I2C config */
+    /* I2C init */
     ESP_ERROR_CHECK( i2c_init() );
-    ESP_LOGI( I2C_LOGGING_TAG, "%s", "Bus configured" );
+    #if ACCELEROMETER_TASK_LOGGING == 1
+    ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "I2C initialized" );
+    #endif
 
-    /* MPU config */
+    /* MPU init */
     ESP_ERROR_CHECK( mpu_init() );
-    ESP_LOGI( I2C_LOGGING_TAG, "%s", "MPU configured" );
-
-    #if I2C_TASK_CHECK_REGS == 1
-        /* Print all MPU registers */
-        ESP_ERROR_CHECK( mpu_check_reg_values() );
+    #if ACCELEROMETER_TASK_LOGGING == 1
+    ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "MPU initialized" );
     #endif
 
     /* Task creation */
-	xTaskCreate( 	prvI2CTask, "I2CTask", 
-					I2C_TASK_STACK_SIZE, NULL, 
-					I2C_TASK_PRIORITY, NULL );   
-    ESP_LOGI( I2C_LOGGING_TAG, "Task created" );    
+	xTaskCreate( 	prvAccelerometerTask, "accelerometerTask", 
+					ACCELEROMETER_TASK_STACK_SIZE, NULL, 
+					ACCELEROMETER_TASK_PRIORITY, NULL );  
+    #if ACCELEROMETER_TASK_LOGGING == 1 
+    ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "Task initialized" );    
+    #endif
 }
 
 void 
-prvI2CTask( void *pvParameters )
+prvAccelerometerTask( void *pvParameters )
 {  
-    #if I2C_TASK_WATERMARK == 1
+    #if ACCELEROMETER_TASK_WATERMARK == 1
         UBaseType_t uxHighWaterMark;
     #endif
 
     vector< string > reg_names = { "AX_L", "AX_H", "AY_L", "AY_H", "AZ_L", "AZ_H" };
-    vector< string > dir_names = { "AX", "AY", "AZ" };
+    vector< string > dir_names = { "AX", "AY", "AZ", "|A|" };
     vector< uint8_t > reg_values = { REG_AX_L, REG_AX_H, REG_AY_L, REG_AY_H, REG_AZ_L, REG_AZ_H };
 
     //uint16_t fifo_count = 0;    
@@ -87,16 +85,14 @@ prvI2CTask( void *pvParameters )
 
     /* Get FIFO count */
     //ESP_ERROR_CHECK( mpu_get_fifo_count( &fifo_count ) );
-    //ESP_LOGI( I2C_LOGGING_TAG, "Fifo count = %d", fifo_count );
+    //ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "Fifo count = %d", fifo_count );
 
     for(;;) 
 	{     
         /* Variables declaration */
         //uint16_t count;
         uint8_t i;
-        float module;
-        char module_str[ BUFFER_SIZE ];
-        string data_log;
+        uint32_t module;
 
         /* Initialization of arrays */
         for( i = 0; i < reg_values.size(); i++ )
@@ -111,7 +107,6 @@ prvI2CTask( void *pvParameters )
         /* Data request and reception */
         for( i = 0; i < reg_values.size(); i ++ )
         {
-            ESP_LOGI( I2C_LOGGING_TAG, "MPU request register %s (%d)...", reg_names.at( i ).c_str(), reg_values.at( i ) );
             mpu_send_byte( reg_values.at( i ), 0, false );
             mpu_receive_byte( (uint8_t*)received_values_8bits + i * sizeof(uint8_t) );
         }
@@ -125,34 +120,30 @@ prvI2CTask( void *pvParameters )
         module = 0;
         for( i = 0; i < reg_values.size() / 2; i ++ )
         {
-            module += pow( (double)*received_values_16bits[ i ], 2 );
+            module += (uint32_t) pow( (double)*received_values_16bits[ i ], 2 );
         }
-        module = sqrt( module );
+        module = (uint32_t) sqrt( (double)module );
 
         /* Log data */
-        sprintf( module_str, "%0.f", module );
-        data_log = "Received values:\n";
-        for( i = 0; i < reg_values.size() / 2; i ++ )
-        {
-            data_log += "\t\t\t";
-            data_log += string( dir_names.at( i ) );
-            data_log += "\t= ";
-            data_log += to_string( *received_values_16bits[ i ] );
-            data_log += "\n";
-        }
-        data_log += "\t\t\t|A|\t= ";
-        data_log += string( module_str );
-        ESP_LOGI( I2C_LOGGING_TAG, "%s", data_log.c_str() );
+        #if ACCELEROMETER_TASK_LOGGING == 1
+        ESP_LOGI(   ACCELEROMETER_LOGGING_TAG, "%s=%d %s=%d %s=%d %s=%d",
+                    dir_names.at( 0 ).c_str(), *received_values_16bits[ 0 ],
+                    dir_names.at( 1 ).c_str(), *received_values_16bits[ 1 ],
+                    dir_names.at( 2 ).c_str(), *received_values_16bits[ 2 ],
+                    dir_names.at( 3 ).c_str(), module );
 
         /* Log watermark task */
-        #if I2C_TASK_WATERMARK == 1
+        #if ACCELEROMETER_TASK_WATERMARK == 1
             uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
-            ESP_LOGI( I2C_LOGGING_TAG, "Task WaterMark: %d", uxHighWaterMark );
+            ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "Task WaterMark: %d", uxHighWaterMark );
+        #endif
         #endif
 
         /* Sleep */
-        vTaskDelay( I2C_DELAY_MS / portTICK_PERIOD_MS);
-        // ESP_LOGI( I2C_LOGGING_TAG, "%s", "Entering deep-sleep mode..." );
+        vTaskDelay( ACCELEROMETER_TASK_DELAY_MS / portTICK_PERIOD_MS);
+        //#if ACCELEROMETER_TASK_LOGGING == 1
+        // ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "Entering deep-sleep mode..." );
+        //#endif
         // start_deep_sleep();
     }
 
@@ -351,7 +342,7 @@ mpu_check_reg_values()
         if( err != ESP_OK )
             return err;
         mpu_receive_byte( &value );
-        ESP_LOGI( I2C_LOGGING_TAG, "[%d] = %d", reg, value );
+        ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "[%d] = %d", reg, value );
     }
 
     return err;
@@ -415,4 +406,20 @@ mpu_get_fifo_count( uint16_t *count_p )
         mpu_receive_byte( (uint8_t*) &count_p + sizeof(uint8_t) );
 
     return err;
+}
+
+esp_err_t
+nvs_init()
+{
+    esp_err_t err = nvs_flash_init();
+    if ( err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND ) 
+    {
+        #if ACCELEROMETER_TASK_LOGGING == 1
+        ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "NVS partition was truncated and needs to be erased. Retrying..." );
+        #endif
+        ESP_ERROR_CHECK( nvs_flash_erase() );
+        err = nvs_flash_init();
+    }
+
+    return err;   
 }
