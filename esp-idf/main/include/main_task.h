@@ -25,6 +25,8 @@
 #include <netinet/in.h>
 #include <netdb.h> 
 
+#include "../lib/MPU6050/MPU6050.h"
+
 using namespace std;
 
 #define GPIO_PIN_2                      ( ( gpio_num_t ) 2 		)

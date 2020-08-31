@@ -56,4 +56,5 @@ esp_err_t mpu_get_fifo_count    ( uint16_t *                    );
 esp_err_t mpu_get_fifo_value    ( uint8_t *                     );
 
 void start_deep_sleep_mode      ( void                          );
+void log_results                ( uint16_t, int16_t**, uint64_t );
 
