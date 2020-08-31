@@ -38,12 +38,14 @@ prvAccelerometerTask( void *pvParameters )
     vector< uint8_t > mpu_reg_addrs;
     int8_t *accel_values_8b;
     int16_t **accel_values_16b;
+    uint16_t j;
     #if ACCELEROMETER_TASK_WATERMARK == 1
         UBaseType_t uxHighWaterMark;
     #endif
 
     /* Variables initialization */
-    mpu_value_names = { "AX", "AY", "AZ", "|A|", "|A|*" };
+    j = 0;
+    mpu_value_names = { "AX", "AY", "AZ", "A" };
     mpu_reg_addrs = { REG_AX_L, REG_AX_H, REG_AY_L, REG_AY_H, REG_AZ_L, REG_AZ_H };
     accel_values_8b = (int8_t*)malloc( mpu_reg_addrs.size() * sizeof(int8_t) );
     accel_values_16b = (int16_t**)malloc( (mpu_reg_addrs.size() / 2) * sizeof(int16_t*) );
@@ -52,8 +54,7 @@ prvAccelerometerTask( void *pvParameters )
 	{     
         /* Variables declaration */
         uint8_t i;
-        uint64_t module, filtered_module, nvs_index;
-        int64_t aux;
+        uint64_t module, nvs_index;
 
         /* Variables initialization */
         for( i = 0; i < mpu_reg_addrs.size(); i++ )
@@ -67,15 +68,11 @@ prvAccelerometerTask( void *pvParameters )
         nvs_index = 0;
         ESP_ERROR_CHECK( nvs_read( NVS_STORAGE_NAME, NVS_INDEX_KEY, &nvs_index ) );
 
-        uint16_t count_p;
-        ESP_ERROR_CHECK( mpu_get_fifo_count( &count_p ) );
-        ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "Fifo count = %d", count_p );
-
         /* Data request and reception */
         for( i = 0; i < mpu_reg_addrs.size(); i ++ )
         {
             ESP_ERROR_CHECK( mpu_send_byte( mpu_reg_addrs.at( i ), 0, false ) );
-            ESP_ERROR_CHECK( mpu_receive_byte( (uint8_t*)accel_values_8b + i * sizeof(uint8_t) ) );
+            mpu_receive_byte( (uint8_t*)accel_values_8b + i * sizeof(uint8_t) );
         }
 
         /* Convert 8-bit received data into 16-bit */
@@ -88,30 +85,17 @@ prvAccelerometerTask( void *pvParameters )
         for( i = 0; i < mpu_reg_addrs.size() / 2; i ++ )
             module += (uint64_t) pow( (double)*accel_values_16b[ i ], 2 );
         module = (uint64_t) sqrt( (double)module );
-        aux = module - MPU_ZERO_VALUE;
-        if( aux < 0 )
-            filtered_module = aux * (-1);
-        else
-            filtered_module = aux;
 
         /* Log data */
-        uint8_t fifo_value;
-        ESP_ERROR_CHECK( mpu_get_fifo_value( &fifo_value) );
         #if ACCELEROMETER_TASK_LOGGING == 1
-        ESP_LOGI(   ACCELEROMETER_LOGGING_TAG, "%s=%d %s=%d %s=%d %s=%llu %s=%llu %s=%d",
-                    mpu_value_names.at( 0 ).c_str(), *accel_values_16b[ 0 ],
-                    mpu_value_names.at( 1 ).c_str(), *accel_values_16b[ 1 ],
-                    mpu_value_names.at( 2 ).c_str(), *accel_values_16b[ 2 ],
-                    mpu_value_names.at( 3 ).c_str(), module,
-                    mpu_value_names.at( 4 ).c_str(), filtered_module,
-                    "FIFO",                          fifo_value    );
+        log_results( j++, accel_values_16b, module );
         #endif
 
-        if( nvs_index < 628 )
+        if( nvs_index < 627 )
         {
             /* Store module into NVS */
             string key = string( NVS_STORAGE_NAME ) + to_string( nvs_index );
-            ESP_ERROR_CHECK( nvs_write( NVS_STORAGE_NAME, key.c_str(), filtered_module ) );
+            ESP_ERROR_CHECK( nvs_write( NVS_STORAGE_NAME, key.c_str(), module ) );
 
             /* Update of NVS index */
             nvs_index++;
@@ -124,12 +108,8 @@ prvAccelerometerTask( void *pvParameters )
         ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "Task WaterMark: %d", uxHighWaterMark );
         #endif
 
-        /* Sleep */
-        // #if ACCELEROMETER_TASK_LOGGING == 1
-        // ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "Deep-sleep mode on" );
-        // #endif
+        /* Delay */
         vTaskDelay( ACCELEROMETER_TASK_DELAY_MS / portTICK_PERIOD_MS );
-        //start_deep_sleep_mode();
     }
 
     /* Task should not reach here */
@@ -141,6 +121,8 @@ prvAccelerometerTask( void *pvParameters )
 	vTaskDelete( NULL );
 }
 
+/* ######################################################################### */
+/* ######################################################################### */
 /* ######################################################################### */
 
 esp_err_t
@@ -165,13 +147,15 @@ i2c_init()
 }
 
 /* ######################################################################### */
+/* ######################################################################### */
+/* ######################################################################### */
 
 esp_err_t
 mpu_init()
 {    
     esp_err_t err;
 
-    err = mpu_send_byte( REG_INT_ENABLE,    0b00010000, true ); // enable data-ready interrupt
+    err = mpu_send_byte( REG_INT_ENABLE,    0b00000001, true ); // enable data-ready interrupt
     if( err != ESP_OK )
         return err;
 
@@ -195,47 +179,9 @@ mpu_init()
     if( err != ESP_OK )
         return err;
 
-    err = mpu_send_byte( REG_FIFO_EN,       0b00001000, true ); // enable fifo for accelerometer
-    if( err != ESP_OK )
-        return err;
-
     err = mpu_send_byte( REG_PWR_MGMT_1,    0b00001000, true ); // disable sleep mode and tmp sensor
     if( err != ESP_OK )
         return err;
-
-    return err;
-}
-
-esp_err_t
-mpu_get_fifo_count( uint16_t *count_p )
-{
-    esp_err_t err;
-
-    err = mpu_send_byte( REG_FIFO_COUNT_H, 0, false );
-    if( err != ESP_OK )
-        return err;
-    else
-        mpu_receive_byte( (uint8_t*) &count_p + sizeof(uint8_t) );
-    
-    err = mpu_send_byte( REG_FIFO_COUNT_L, 0, false );
-    if( err != ESP_OK )
-        return err;
-    else
-        mpu_receive_byte( (uint8_t*) &count_p );
-
-    return err;
-}
-
-esp_err_t
-mpu_get_fifo_value( uint8_t *value_p )
-{
-    esp_err_t err;
-
-    err = mpu_send_byte( REG_FIFO_R_W, 0, false );
-    if( err != ESP_OK )
-        return err;
-        
-    err = mpu_receive_byte( value_p );
 
     return err;
 }
@@ -372,6 +318,8 @@ mpu_check_reg_values()
 }
 
 /* ######################################################################### */
+/* ######################################################################### */
+/* ######################################################################### */
 
 esp_err_t
 nvs_init()
@@ -456,6 +404,8 @@ nvs_check_values()
 }
 
 /* ######################################################################### */
+/* ######################################################################### */
+/* ######################################################################### */
 
 void
 start_deep_sleep_mode()
@@ -465,3 +415,32 @@ start_deep_sleep_mode()
 	esp_deep_sleep_start();
 }
  
+void
+log_results( uint16_t c, int16_t** results_vector, uint64_t module )
+{
+    vector< string > mpu_value_names = { "AX", "AY", "AZ", "A" };
+    size_t result_len = 9;
+    size_t i;    
+    string log = "[" + to_string( c ) + "] [ ";
+
+    for( i = 0; i < 3; i++ )
+    {
+        int16_t result = *results_vector[ i ];
+        
+        string partial_log = mpu_value_names.at( i ) + string( "=" ) + to_string( result );
+
+        uint8_t diff = result_len - partial_log.size();
+
+        uint8_t j;
+        for( j = 0; j < diff; j++ )
+            partial_log += string( " " );
+
+        partial_log += string( " | " );
+
+        log += partial_log;
+    }
+
+    log += string( mpu_value_names.at( 3 ) + string( "=" ) + to_string( module ) ) + " ]";
+
+    ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", log.c_str() );
+}
