@@ -1,24 +1,42 @@
+// TODO: stub function
+
 #include "../include/accelerometer_task.h"
+
+static MPU6050 mpu;
+static I2Cdev i2cdev;
+
+/* ######################################################################### */
+/* ######################################################################### */
+/* ######################################################################### */
 
 void 
 start_accelerometer_task( void )
 {
-    /* NVS init */
-    ESP_ERROR_CHECK( nvs_init() );
-    #if ACCELEROMETER_TASK_LOGGING == 1
-    ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "NVS initialized" );
-    #endif
-
     /* I2C init */
+    i2cdev = I2Cdev();
     ESP_ERROR_CHECK( i2c_init() );
     #if ACCELEROMETER_TASK_LOGGING == 1
     ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "I2C initialized" );
     #endif
 
     /* MPU init */
-    ESP_ERROR_CHECK( mpu_init() );
+    mpu = MPU6050();
+    mpu_init();
     #if ACCELEROMETER_TASK_LOGGING == 1
     ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "MPU initialized" );
+    #endif
+
+    /* Checking FIFO count */
+    if( mpu.getFIFOCount() < MPU_FIFO_SIZE )
+    {
+        ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "Deep-sleep mode on" );
+        start_deep_sleep_mode();
+    }
+
+    /* NVS init */
+    ESP_ERROR_CHECK( nvs_init() );
+    #if ACCELEROMETER_TASK_LOGGING == 1
+    ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "NVS initialized" );
     #endif
 
     /* Task creation */
@@ -34,94 +52,83 @@ void
 prvAccelerometerTask( void *pvParameters )
 {  
     /* Variables declaration */
-    vector< string > mpu_value_names;
-    vector< uint8_t > mpu_reg_addrs;
-    int8_t *accel_values_8b;
-    int16_t **accel_values_16b;
-    uint16_t j;
-    #if ACCELEROMETER_TASK_WATERMARK == 1
-        UBaseType_t uxHighWaterMark;
-    #endif
+    int16_t *mpu_accel_values;
 
     /* Variables initialization */
-    j = 0;
-    mpu_value_names = { "AX", "AY", "AZ", "A" };
-    mpu_reg_addrs = { REG_AX_L, REG_AX_H, REG_AY_L, REG_AY_H, REG_AZ_L, REG_AZ_H };
-    accel_values_8b = (int8_t*)malloc( mpu_reg_addrs.size() * sizeof(int8_t) );
-    accel_values_16b = (int16_t**)malloc( (mpu_reg_addrs.size() / 2) * sizeof(int16_t*) );
+    mpu_accel_values = (int16_t*)malloc( MPU_AXIS_COUNT * sizeof(int16_t) );
 
     for(;;) 
-	{     
-        /* Variables declaration */
-        uint8_t i;
-        uint64_t module, nvs_index;
+	{    
+        uint16_t i, fifo_count;
 
-        /* Variables initialization */
-        for( i = 0; i < mpu_reg_addrs.size(); i++ )
+        i = 0;
+
+        do
         {
-            accel_values_8b[ i ] = 0;
-            if( i % 2 == 0)
-                accel_values_16b[ i / 2 ] = 0;
-        }
+            /* Variables declaration */
+            uint8_t j;
+            uint64_t module;
 
-        /* NVS index get */
-        nvs_index = 0;
-        ESP_ERROR_CHECK( nvs_read( NVS_STORAGE_NAME, NVS_INDEX_KEY, &nvs_index ) );
+            /* Data request and reception */
+            mpu.getFIFOBytes( (uint8_t*) mpu_accel_values, MPU_AXIS_COUNT * 2 );
+    
+            /* Swap nibbles */
+            for( j = 0; j < MPU_AXIS_COUNT; j++ )
+            {   
+                uint8_t h_byte = ( mpu_accel_values[ j ] & 0xFF00 ) >> 8;
+                uint8_t l_byte = mpu_accel_values[ j ] & 0x00FF;
+                mpu_accel_values[ j ] = l_byte << 8 | h_byte;
+            }
 
-        /* Data request and reception */
-        for( i = 0; i < mpu_reg_addrs.size(); i ++ )
-        {
-            ESP_ERROR_CHECK( mpu_send_byte( mpu_reg_addrs.at( i ), 0, false ) );
-            mpu_receive_byte( (uint8_t*)accel_values_8b + i * sizeof(uint8_t) );
-        }
+            /* Calculate data module */
+            module = 0;
+            for( j = 0; j < MPU_AXIS_COUNT; j++ )
+                module += (uint64_t) mpu_accel_values[ j ] * mpu_accel_values[ j ];
+            module = (uint64_t) sqrt( (double)module );
 
-        /* Convert 8-bit received data into 16-bit */
-        accel_values_16b[ 0 ] = (int16_t*) ( accel_values_8b ); 
-        accel_values_16b[ 1 ] = (int16_t*) ( accel_values_8b + sizeof(int16_t) * 1 );
-        accel_values_16b[ 2 ] = (int16_t*) ( accel_values_8b + sizeof(int16_t) * 2 );
+            /* Updating FIFO count */
+            fifo_count = mpu.getFIFOCount();
+            
+            /* NVS index get */
+            nvs_index = 0;
+            ESP_ERROR_CHECK( nvs_read( NVS_STORAGE_NAME, NVS_INDEX_KEY, &nvs_index ) );
+            if( nvs_index < 627 )
+            {
+                /* Store module into NVS */
+                string key = string( NVS_STORAGE_NAME ) + to_string( nvs_index );
+                ESP_ERROR_CHECK( nvs_write( NVS_STORAGE_NAME, key.c_str(), module ) );
 
-        /* Calculate data module */
-        module = 0;
-        for( i = 0; i < mpu_reg_addrs.size() / 2; i ++ )
-            module += (uint64_t) pow( (double)*accel_values_16b[ i ], 2 );
-        module = (uint64_t) sqrt( (double)module );
+                /* Update of NVS index */
+                nvs_index++;
+                ESP_ERROR_CHECK( nvs_write( NVS_STORAGE_NAME, NVS_INDEX_KEY, nvs_index ) );
+            }
 
-        /* Log data */
+            /* Log data */
+            #if ACCELEROMETER_TASK_LOGGING == 1
+            log_results( i++, mpu_accel_values, module, fifo_count );
+            #endif
+        } 
+        while( fifo_count > MPU_AXIS_COUNT * 2 );
+
+        /* Reset FIFO */
+        mpu.setFIFOEnabled( false );
+        mpu.resetFIFO();
+
+        /* Sleep */
         #if ACCELEROMETER_TASK_LOGGING == 1
-        log_results( j++, accel_values_16b, module );
+        ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "Deep-sleep mode on" );
         #endif
-
-        if( nvs_index < 627 )
-        {
-            /* Store module into NVS */
-            string key = string( NVS_STORAGE_NAME ) + to_string( nvs_index );
-            ESP_ERROR_CHECK( nvs_write( NVS_STORAGE_NAME, key.c_str(), module ) );
-
-            /* Update of NVS index */
-            nvs_index++;
-            ESP_ERROR_CHECK( nvs_write( NVS_STORAGE_NAME, NVS_INDEX_KEY, nvs_index ) );
-        }
-
-        /* Log watermark task */
-        #if ACCELEROMETER_TASK_WATERMARK == 1 and ACCELEROMETER_TASK_LOGGING == 1
-        uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
-        ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "Task WaterMark: %d", uxHighWaterMark );
-        #endif
-
-        /* Delay */
-        vTaskDelay( ACCELEROMETER_TASK_DELAY_MS / portTICK_PERIOD_MS );
+        start_deep_sleep_mode();
     }
 
     /* Task should not reach here */
     #if ACCELEROMETER_TASK_LOGGING == 1
     ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "Task ended" );
     #endif
-    free( accel_values_8b );
-    free( accel_values_16b );
+    free( mpu_accel_values );
 	vTaskDelete( NULL );
 }
 
-/* ######################################################################### */
 /* ######################################################################### */
 /* ######################################################################### */
 
@@ -148,176 +155,47 @@ i2c_init()
 
 /* ######################################################################### */
 /* ######################################################################### */
-/* ######################################################################### */
 
-esp_err_t
+void
 mpu_init()
-{    
-    esp_err_t err;
+{   
+    mpu.setIntFIFOBufferOverflowEnabled( true );
 
-    err = mpu_send_byte( REG_INT_ENABLE,    0b00000001, true ); // enable data-ready interrupt
-    if( err != ESP_OK )
-        return err;
+    mpu.setInterruptLatchClear( true );
 
-    err = mpu_send_byte( REG_INT_PIN_CFG,   0b00010000, true ); // clear int when reading
-    if( err != ESP_OK )
-        return err;
+    mpu.setStandbyXGyroEnabled( true );
+    mpu.setStandbyYGyroEnabled( true );
+    mpu.setStandbyZGyroEnabled( true );
 
-    err = mpu_send_byte( REG_PWR_MGMT_2,    0b00000111, true ); // disable gyro 
-    if( err != ESP_OK )
-        return err;
+    mpu.setFullScaleAccelRange( 0x00 );
 
-    err = mpu_send_byte( REG_ACCEL_CONF,    0b00000000, true ); // config accelerometer sensibility
-    if( err != ESP_OK )
-        return err;
+    mpu.setDLPFMode( MPU6050_DLPF_BW_5 );
 
-    err = mpu_send_byte( REG_CONFIG,        0b00000110, true ); // config low-pass filter
-    if( err != ESP_OK )
-        return err;
+    mpu.setRate( 0xFF );
 
-    err = mpu_send_byte( REG_SMPRT_DIV,     0b11111111, true ); // config sample-rate divider
-    if( err != ESP_OK )
-        return err;
+    mpu.setFIFOEnabled( true );
 
-    err = mpu_send_byte( REG_PWR_MGMT_1,    0b00001000, true ); // disable sleep mode and tmp sensor
-    if( err != ESP_OK )
-        return err;
+    mpu.setAccelFIFOEnabled( true );
 
-    return err;
+    mpu.setSleepEnabled( false );
+    mpu.setTempSensorEnabled( false );
 }
 
-esp_err_t
-mpu_receive_byte( uint8_t *value_p ) 
-{
-    esp_err_t err = ESP_OK;
-
-	// Create I2C command buffer
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-
-	// Queue start signal
-	err = i2c_master_start( cmd );
-    if( err != ESP_OK )
-    {
-        goto esc;
-    }
-
-	// Queue the slave address (operation = read)
-	err = i2c_master_write_byte( cmd, ( I2C_SLAVE_ADDR << 1 ) | I2C_MASTER_READ, true);
-    if( err != ESP_OK )
-    {
-        goto esc;
-    }
-
-	// Read from the bus
-	err = i2c_master_read_byte( cmd, value_p, I2C_MASTER_ACK );
-    if( err != ESP_OK )
-    {
-        goto esc;
-    }
-
-	// Queue the master stop command
-	err = i2c_master_stop( cmd );
-    if( err != ESP_OK )
-    {
-        goto esc;
-    }
-
-	// Execute the command queue
-	err = i2c_master_cmd_begin(	I2C_NUM_0, cmd,	portMAX_DELAY );
-    if( err != ESP_OK )
-    {
-        goto esc;
-    }
-
-    esc:
-
-	// Destroy (recycle) command queue
-	i2c_cmd_link_delete( cmd );
-
-	return err;
-}
-
-esp_err_t
-mpu_send_byte( uint8_t reg, uint8_t value, bool write ) 
-{
-    esp_err_t err = ESP_OK;
-
-	// Create I2C command buffer
-	i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-
-	// Queue start signal
-	err = i2c_master_start( cmd );
-    if( err != ESP_OK )
-    {
-        goto esc;
-    }
-
-	// Queue adjusted slave address (operation = write)
-	err = i2c_master_write_byte( cmd, ( I2C_SLAVE_ADDR << 1 ) | I2C_MASTER_WRITE, true);
-    if( err != ESP_OK )
-    {
-        goto esc;
-    }
-
-	// Queue the register
-	err = i2c_master_write_byte( cmd, reg, true );
-    if( err != ESP_OK )
-    {
-        goto esc;
-    }
-
-    // Queue data (if write)
-	if ( write )
-    {
-        err = i2c_master_write_byte( cmd, value, true ); 
-		if( err != ESP_OK )
-        {
-            goto esc;
-        }
-	} 
-
-	// Queue stop command
-	err = i2c_master_stop( cmd );
-    if( err != ESP_OK )
-    {
-        goto esc;
-    }
-
-	// Execute the command queue
-	err = i2c_master_cmd_begin( I2C_NUM_0, cmd, portMAX_DELAY );
-    if( err != ESP_OK )
-    {
-        goto esc;
-    }
-
-    esc:
-
-	// Destroy (recycle) command queue
-	i2c_cmd_link_delete( cmd );
-
-    return err;
-}
-
-esp_err_t
+void
 mpu_check_reg_values()
 {
     uint8_t value = 0;
     uint8_t reg;
-    esp_err_t err = ESP_OK;
 
     for( reg = 13; reg < 118; reg++ )
     {
-        err = mpu_send_byte( reg, 0, false );
-        if( err != ESP_OK )
-            return err;
-        mpu_receive_byte( &value );
-        ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "[%d] = %d", reg, value );
+        if( i2cdev.readByte( I2C_SLAVE_ADDR, reg, &value ) == true )
+            ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "[%d] = %d", reg, value );
+        else
+            ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "Cannot check registers values" );
     }
-
-    return err;
 }
 
-/* ######################################################################### */
 /* ######################################################################### */
 /* ######################################################################### */
 
@@ -348,6 +226,12 @@ nvs_read( const char* storage, const char* key, uint64_t *value )
         /* Read value */
         err = nvs_get_u64( my_handle, key, value );
         nvs_close( my_handle );
+    }
+
+    if( err == ESP_ERR_NVS_NOT_FOUND )
+    {
+        *value = 0;
+        err = ESP_OK;
     }
     
     return err;
@@ -405,7 +289,6 @@ nvs_check_values()
 
 /* ######################################################################### */
 /* ######################################################################### */
-/* ######################################################################### */
 
 void
 start_deep_sleep_mode()
@@ -414,33 +297,42 @@ start_deep_sleep_mode()
     ESP_ERROR_CHECK( esp_sleep_enable_ext0_wakeup( GPIO_PIN_2, 1 ) );
 	esp_deep_sleep_start();
 }
- 
+
 void
-log_results( uint16_t c, int16_t** results_vector, uint64_t module )
+log_results( uint16_t c, int16_t* results_vector, uint64_t module, uint16_t fifo_count )
 {
-    vector< string > mpu_value_names = { "AX", "AY", "AZ", "A" };
-    size_t result_len = 9;
-    size_t i;    
+    vector< string > log_names = { "AX", "AY", "AZ", "A", "FIFO" };
+    size_t result_len = 11;
+    size_t i;   
+    uint8_t diff; 
     string log = "[" + to_string( c ) + "] [ ";
+    string aux;
 
     for( i = 0; i < 3; i++ )
     {
-        int16_t result = *results_vector[ i ];
+        int16_t result = results_vector[ i ];
         
-        string partial_log = mpu_value_names.at( i ) + string( "=" ) + to_string( result );
+        aux = log_names.at( i ) + "=" + to_string( result );
 
-        uint8_t diff = result_len - partial_log.size();
+        diff = result_len - aux.size();
 
         uint8_t j;
         for( j = 0; j < diff; j++ )
-            partial_log += string( " " );
+            aux += " ";
 
-        partial_log += string( " | " );
+        aux += " | ";
 
-        log += partial_log;
+        log += aux;
     }
 
-    log += string( mpu_value_names.at( 3 ) + string( "=" ) + to_string( module ) ) + " ]";
+    aux = log_names.at( 3 ) + "=" + to_string( module );
+    diff = result_len - aux.size();
+    for( i = 0; i < diff; i++ )
+        aux += " ";
+    log += aux;
+
+    log += " | " + log_names.at( 4 ) + "=" + to_string( fifo_count ) + " ]";
 
     ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", log.c_str() );
 }
+ 
