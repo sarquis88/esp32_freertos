@@ -1,4 +1,5 @@
 // TODO: stub function
+// TODO: nvs 
 
 #include "../include/accelerometer_task.h"
 
@@ -60,14 +61,18 @@ prvAccelerometerTask( void *pvParameters )
     for(;;) 
 	{    
         uint16_t i, fifo_count;
-
+        fort::char_table table;
+        
         i = 0;
+        table << fort::header << "N" << "Ax" << "Ay" << "Az" << "A" << "FIFO" << fort::endr;
 
         do
         {
             /* Variables declaration */
             uint8_t j;
+            uint16_t free_entries;
             uint64_t module;
+            uint64_t nvs_index;
 
             /* Data request and reception */
             mpu.getFIFOBytes( (uint8_t*) mpu_accel_values, MPU_AXIS_COUNT * 2 );
@@ -89,26 +94,37 @@ prvAccelerometerTask( void *pvParameters )
             /* Updating FIFO count */
             fifo_count = mpu.getFIFOCount();
             
-            /* NVS index get */
-            nvs_index = 0;
-            ESP_ERROR_CHECK( nvs_read( NVS_STORAGE_NAME, NVS_INDEX_KEY, &nvs_index ) );
-            if( nvs_index < 627 )
-            {
-                /* Store module into NVS */
-                string key = string( NVS_STORAGE_NAME ) + to_string( nvs_index );
-                ESP_ERROR_CHECK( nvs_write( NVS_STORAGE_NAME, key.c_str(), module ) );
+            /* NVS free entries */
+            // ESP_ERROR_CHECK( nvs_get_free_entries( &free_entries) );
+            // if( free_entries > 0 )
+            // {
+            //     /* NVS index get */
+            //     nvs_index = 0;
+            //     ESP_ERROR_CHECK( nvs_read( NVS_STORAGE_NAME, NVS_INDEX_KEY, &nvs_index ) );
 
-                /* Update of NVS index */
-                nvs_index++;
-                ESP_ERROR_CHECK( nvs_write( NVS_STORAGE_NAME, NVS_INDEX_KEY, nvs_index ) );
-            }
+            //     /* Store module into NVS */
+            //     nvs_index++;
+            //     string key = string( NVS_STORAGE_NAME ) + to_string( nvs_index );
+            //     ESP_ERROR_CHECK( nvs_write( NVS_STORAGE_NAME, key.c_str(), module ) );
 
-            /* Log data */
+            //     /* Refresh NVS index */
+            //     ESP_ERROR_CHECK( nvs_write( NVS_STORAGE_NAME, NVS_INDEX_KEY, nvs_index ) );
+            // }
+
+            /* Concat log data */
             #if ACCELEROMETER_TASK_LOGGING == 1
-            log_results( i++, mpu_accel_values, module, fifo_count );
+            table << i++;
+            for( j = 0; j < MPU_AXIS_COUNT; j++ )
+                table << mpu_accel_values[ j ];
+            table << module << fifo_count << fort::endr;
             #endif
         } 
         while( fifo_count > MPU_AXIS_COUNT * 2 );
+
+        /* Log data */
+        #if ACCELEROMETER_TASK_LOGGING == 1
+        ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "MPU data log\n\n%s", table.to_string().c_str() );
+        #endif
 
         /* Reset FIFO */
         mpu.setFIFOEnabled( false );
@@ -287,6 +303,19 @@ nvs_check_values()
     return ESP_OK;
 }
 
+esp_err_t
+nvs_get_free_entries( uint16_t *entries_p )
+{
+    esp_err_t err;
+    nvs_stats_t nvs_stats;
+
+    err = nvs_get_stats(NULL, &nvs_stats);
+    if( err == ESP_OK )
+        *entries_p = nvs_stats.free_entries - NVS_OFFSET;
+
+    return err;
+}
+
 /* ######################################################################### */
 /* ######################################################################### */
 
@@ -297,42 +326,3 @@ start_deep_sleep_mode()
     ESP_ERROR_CHECK( esp_sleep_enable_ext0_wakeup( GPIO_PIN_2, 1 ) );
 	esp_deep_sleep_start();
 }
-
-void
-log_results( uint16_t c, int16_t* results_vector, uint64_t module, uint16_t fifo_count )
-{
-    vector< string > log_names = { "AX", "AY", "AZ", "A", "FIFO" };
-    size_t result_len = 11;
-    size_t i;   
-    uint8_t diff; 
-    string log = "[" + to_string( c ) + "] [ ";
-    string aux;
-
-    for( i = 0; i < 3; i++ )
-    {
-        int16_t result = results_vector[ i ];
-        
-        aux = log_names.at( i ) + "=" + to_string( result );
-
-        diff = result_len - aux.size();
-
-        uint8_t j;
-        for( j = 0; j < diff; j++ )
-            aux += " ";
-
-        aux += " | ";
-
-        log += aux;
-    }
-
-    aux = log_names.at( 3 ) + "=" + to_string( module );
-    diff = result_len - aux.size();
-    for( i = 0; i < diff; i++ )
-        aux += " ";
-    log += aux;
-
-    log += " | " + log_names.at( 4 ) + "=" + to_string( fifo_count ) + " ]";
-
-    ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", log.c_str() );
-}
- 
