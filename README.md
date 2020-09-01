@@ -1,7 +1,7 @@
 ## FreeRTOS application running on ESP32 embedded system
 
 ### Introduction
-    The proyect hardware consists on one ESP32 board working along with the accelerometer/gyroscope chip MPU6050. The application main objetive is to measure animals acceleration for monitoring them in the countryside.
+The proyect hardware consists on one ESP32 board working along with the accelerometer/gyroscope chip MPU6050. The application main objetive is to measure animals acceleration for monitoring them in the countryside.
 
 ### Goals
     The main goals of the proyect are:
