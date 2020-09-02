@@ -16,5 +16,4 @@ Clone the repository and go to the proyect folder, then
 
     * Connect hardware to PC
     * ```make flash``` build and flash the proyect
-    * ```make monitor``` monitor the running
-    esp32-app
+    * ```make monitor``` monitor the running esp32-app
