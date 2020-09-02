@@ -1,12 +1,12 @@
 // TODO: stub function
-// TODO: nvs 
+// TODO: slow i2c freq
 
 #include "../include/accelerometer_task.h"
 
+/* Static variables declarations */
 static MPU6050 mpu;
 static I2Cdev i2cdev;
 
-/* ######################################################################### */
 /* ######################################################################### */
 /* ######################################################################### */
 
@@ -17,27 +17,27 @@ start_accelerometer_task( void )
     i2cdev = I2Cdev();
     ESP_ERROR_CHECK( i2c_init() );
     #if ACCELEROMETER_TASK_LOGGING == 1
-    ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "I2C initialized" );
+    ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "I2C initialized" );
     #endif
 
     /* MPU init */
     mpu = MPU6050();
     mpu_init();
     #if ACCELEROMETER_TASK_LOGGING == 1
-    ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "MPU initialized" );
+    ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "MPU initialized" );
     #endif
 
     /* Checking FIFO count */
     if( mpu.getFIFOCount() < MPU_FIFO_SIZE )
     {
-        ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "Deep-sleep mode on" );
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Deep-sleep mode on" );
         start_deep_sleep_mode();
     }
 
     /* NVS init */
     ESP_ERROR_CHECK( nvs_init() );
     #if ACCELEROMETER_TASK_LOGGING == 1
-    ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "NVS initialized" );
+    ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "NVS initialized" );
     #endif
 
     /* Task creation */
@@ -45,7 +45,7 @@ start_accelerometer_task( void )
 					ACCELEROMETER_TASK_STACK_SIZE, NULL, 
 					ACCELEROMETER_TASK_PRIORITY, NULL );  
     #if ACCELEROMETER_TASK_LOGGING == 1 
-    ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "Task initialized" );    
+    ESP_LOGI( ACCELEROMETER_TASK_TAG, "Task initialized" );    
     #endif
 }
 
@@ -54,25 +54,33 @@ prvAccelerometerTask( void *pvParameters )
 {  
     /* Variables declaration */
     int16_t *mpu_accel_values;
+    uint16_t *mpu_module_array;
 
     /* Variables initialization */
-    mpu_accel_values = (int16_t*)malloc( MPU_AXIS_COUNT * sizeof(int16_t) );
+    mpu_accel_values = ( int16_t*  ) malloc ( MPU_AXIS_COUNT * sizeof( int16_t ) );
+    mpu_module_array = ( uint16_t* ) malloc ( MPU_GROUP_SIZE * sizeof( uint16_t ) );
 
+    /* Start task loop */
     for(;;) 
 	{    
+        /* Variables declaration */
         uint16_t i, fifo_count;
+        #if ACCELEROMETER_TASK_LOGGING == 1
         fort::char_table table;
+        #endif
         
+        /* Variables initialization */
         i = 0;
+        #if ACCELEROMETER_TASK_LOGGING == 1
         table << fort::header << "N" << "Ax" << "Ay" << "Az" << "A" << "FIFO" << fort::endr;
+        #endif
 
-        do
+        /* Start MPU data read */
+        for( i = 0; i < MPU_GROUP_SIZE; i++ ) 
         {
             /* Variables declaration */
             uint8_t j;
-            uint16_t free_entries;
-            uint64_t module;
-            uint64_t nvs_index;
+            uint32_t module;
 
             /* Data request and reception */
             mpu.getFIFOBytes( (uint8_t*) mpu_accel_values, MPU_AXIS_COUNT * 2 );
@@ -88,42 +96,30 @@ prvAccelerometerTask( void *pvParameters )
             /* Calculate data module */
             module = 0;
             for( j = 0; j < MPU_AXIS_COUNT; j++ )
-                module += (uint64_t) mpu_accel_values[ j ] * mpu_accel_values[ j ];
-            module = (uint64_t) sqrt( (double)module );
+                module += (uint32_t) mpu_accel_values[ j ] * mpu_accel_values[ j ];
+            module = (uint32_t) sqrt( (double)module );
+
+            /* Module convertion to 16-bit */
+            mpu_module_array[ i ] = atoi( to_string( module ).c_str() );
 
             /* Updating FIFO count */
             fifo_count = mpu.getFIFOCount();
             
-            /* NVS free entries */
-            // ESP_ERROR_CHECK( nvs_get_free_entries( &free_entries) );
-            // if( free_entries > 0 )
-            // {
-            //     /* NVS index get */
-            //     nvs_index = 0;
-            //     ESP_ERROR_CHECK( nvs_read( NVS_STORAGE_NAME, NVS_INDEX_KEY, &nvs_index ) );
-
-            //     /* Store module into NVS */
-            //     nvs_index++;
-            //     string key = string( NVS_STORAGE_NAME ) + to_string( nvs_index );
-            //     ESP_ERROR_CHECK( nvs_write( NVS_STORAGE_NAME, key.c_str(), module ) );
-
-            //     /* Refresh NVS index */
-            //     ESP_ERROR_CHECK( nvs_write( NVS_STORAGE_NAME, NVS_INDEX_KEY, nvs_index ) );
-            // }
-
             /* Concat log data */
             #if ACCELEROMETER_TASK_LOGGING == 1
-            table << i++;
+            table << i + 1;
             for( j = 0; j < MPU_AXIS_COUNT; j++ )
                 table << mpu_accel_values[ j ];
             table << module << fifo_count << fort::endr;
             #endif
-        } 
-        while( fifo_count > MPU_AXIS_COUNT * 2 );
+        }
+
+        /* Store data into NVS */
+        ESP_ERROR_CHECK( nvs_write( mpu_module_array, MPU_GROUP_SIZE * 2 ) );
 
         /* Log data */
         #if ACCELEROMETER_TASK_LOGGING == 1
-        ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "MPU data log\n\n%s", table.to_string().c_str() );
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "MPU data log\n\n%s", table.to_string().c_str() );
         #endif
 
         /* Reset FIFO */
@@ -132,16 +128,17 @@ prvAccelerometerTask( void *pvParameters )
 
         /* Sleep */
         #if ACCELEROMETER_TASK_LOGGING == 1
-        ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "Deep-sleep mode on" );
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Deep-sleep mode on" );
         #endif
         start_deep_sleep_mode();
     }
 
     /* Task should not reach here */
     #if ACCELEROMETER_TASK_LOGGING == 1
-    ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "Task ended" );
+    ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Task ended" );
     #endif
     free( mpu_accel_values );
+    free( mpu_module_array );
 	vTaskDelete( NULL );
 }
 
@@ -206,9 +203,9 @@ mpu_check_reg_values()
     for( reg = 13; reg < 118; reg++ )
     {
         if( i2cdev.readByte( I2C_SLAVE_ADDR, reg, &value ) == true )
-            ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "[%d] = %d", reg, value );
+            ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] = %d", reg, value );
         else
-            ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "Cannot check registers values" );
+            ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Cannot check registers values" );
     }
 }
 
@@ -222,7 +219,7 @@ nvs_init()
     if ( err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND ) 
     {
         #if ACCELEROMETER_TASK_LOGGING == 1
-        ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "%s", "NVS partition was truncated and needs to be erased. Retrying..." );
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "NVS partition was truncated and needs to be erased. Retrying..." );
         #endif
         ESP_ERROR_CHECK( nvs_flash_erase() );
         err = nvs_flash_init();
@@ -232,87 +229,42 @@ nvs_init()
 }
 
 esp_err_t
-nvs_read( const char* storage, const char* key, uint64_t *value )
+nvs_read( uint16_t* data, size_t* len )
 {
-    /* Open nvs */
     nvs_handle_t my_handle;
-    esp_err_t err = nvs_open( storage, NVS_READWRITE, &my_handle );
+    esp_err_t err = nvs_open( NVS_STORAGE_NAME, NVS_READWRITE, &my_handle );
+
     if ( err == ESP_OK ) 
     {
-        /* Read value */
-        err = nvs_get_u64( my_handle, key, value );
+        err = nvs_get_blob( my_handle, NVS_KEY_NAME, (void*)data, len );
+        
+        if( err == ESP_ERR_NVS_NOT_FOUND )
+        {
+            *data = 0;
+            err = ESP_OK;
+        }
         nvs_close( my_handle );
-    }
-
-    if( err == ESP_ERR_NVS_NOT_FOUND )
-    {
-        *value = 0;
-        err = ESP_OK;
     }
     
     return err;
 }
 
 esp_err_t
-nvs_write( const char* storage, const char* key, uint64_t value )
+nvs_write( uint16_t* data, size_t len )
 {
-    /* Open nvs */
     nvs_handle_t my_handle;
-    esp_err_t err = nvs_open( storage, NVS_READWRITE, &my_handle );
+    esp_err_t err = nvs_open( NVS_STORAGE_NAME, NVS_READWRITE, &my_handle );
+
     if ( err == ESP_OK ) 
     {
-        /* Write value */
-        err = nvs_set_u64( my_handle, key, value );
+        err = nvs_set_blob( my_handle, NVS_KEY_NAME, (void*)data, len );
         if( err == ESP_OK )
         {
             err = nvs_commit( my_handle );
         }
         nvs_close( my_handle );
     }
-
-    return err;
-}
-
-esp_err_t
-nvs_check_values()
-{
-    string log;
-    char key[ BUFFER_SIZE ];
-    uint16_t i;
-    uint64_t nvs_index, read;
-    float average = 0;
     
-    nvs_index = 0;
-
-    nvs_read( NVS_STORAGE_NAME, NVS_INDEX_KEY, (uint64_t*)&nvs_index );
-
-    if( nvs_index == 0 )
-        return ESP_OK;
-    
-    for( i = 0; i < nvs_index; i++ )
-    {
-        sprintf( key, "%s%d", NVS_STORAGE_NAME, i );
-        nvs_read( NVS_STORAGE_NAME, key, &read );
-        ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "NVS %d: %llu", i, read );
-        average += read;
-    }
-
-    average = average / nvs_index;
-    ESP_LOGI( ACCELEROMETER_LOGGING_TAG, "NVS average: %0.f", average );
-
-    return ESP_OK;
-}
-
-esp_err_t
-nvs_get_free_entries( uint16_t *entries_p )
-{
-    esp_err_t err;
-    nvs_stats_t nvs_stats;
-
-    err = nvs_get_stats(NULL, &nvs_stats);
-    if( err == ESP_OK )
-        *entries_p = nvs_stats.free_entries - NVS_OFFSET;
-
     return err;
 }
 

@@ -2,11 +2,7 @@
 
 /* ######################################################################## */
 
-
-#define BLINKER_TASK_ON				0
-#define INTRECEIVER_TASK_ON			0
-#define WIFICONNECTION_TASK_ON		0
-#define WIFISCANNER_TASK_ON			0
+#define ACCELEROMETER_TASK_ON		1
 #define TASKSLIST_TASK_ON			0
 
 /* ######################################################################## */
@@ -14,11 +10,13 @@
 void 
 app_main( void )
 {	
+	#if ACCELEROMETER_TASK_ON == 1
 	/* Starts accelerometer senses */
 	start_accelerometer_task();
+	#endif
 
 	#if TASKSLIST_TASK_ON == 1
-		/* Starts tasks listing */
-		start_taskslist_task();
+	/* Starts tasks listing */
+	start_taskslist_task();
 	#endif
 }
