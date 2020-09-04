@@ -14,6 +14,6 @@ The main goals of the proyect are:
 ### Flashing the proyect to ESP32
 Clone the repository and go to the proyect folder, then
 
-    * Connect hardware to PC
-    * ```make flash``` build and flash the proyect
-    * ```make monitor``` monitor the running esp32-app
+ * Connect hardware to PC
+ * ```make flash``` build and flash the proyect
+ * ```make monitor``` monitor the running esp32-app
