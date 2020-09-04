@@ -1,6 +1,9 @@
 // TODO: stub function
 // TODO: slow i2c freq
 
+// quieto:      
+// caminando:   16454
+
 #include "../include/accelerometer_task.h"
 
 /* Static variables declarations */
@@ -13,6 +16,10 @@ static I2Cdev i2cdev;
 void 
 start_accelerometer_task( void )
 {
+    // ESP_ERROR_CHECK( nvs_init() );
+    // ESP_ERROR_CHECK( nvs_check() );
+    // return;
+
     /* I2C init */
     i2cdev = I2Cdev();
     ESP_ERROR_CHECK( i2c_init() );
@@ -64,6 +71,7 @@ prvAccelerometerTask( void *pvParameters )
     for(;;) 
 	{    
         /* Variables declaration */
+        uint8_t nvs_index;
         uint16_t i, fifo_count;
         #if ACCELEROMETER_TASK_LOGGING == 1
         fort::char_table table;
@@ -73,7 +81,11 @@ prvAccelerometerTask( void *pvParameters )
         i = 0;
         #if ACCELEROMETER_TASK_LOGGING == 1
         table << fort::header << "N" << "Ax" << "Ay" << "Az" << "A" << "FIFO" << fort::endr;
+        table.set_border_style( FT_SOLID_ROUND_STYLE );
         #endif
+
+        /* Get NVS index */
+        ESP_ERROR_CHECK( nvs_get_index( &nvs_index) );
 
         /* Start MPU data read */
         for( i = 0; i < MPU_GROUP_SIZE; i++ ) 
@@ -115,12 +127,21 @@ prvAccelerometerTask( void *pvParameters )
         }
 
         /* Store data into NVS */
-        ESP_ERROR_CHECK( nvs_write( mpu_module_array, MPU_GROUP_SIZE * 2 ) );
+        ESP_ERROR_CHECK( nvs_write( mpu_module_array, MPU_GROUP_SIZE * 2, nvs_index ) );
 
         /* Log data */
         #if ACCELEROMETER_TASK_LOGGING == 1
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "MPU data log\n\n%s", table.to_string().c_str() );
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "Data stored in NVS entry number %d", nvs_index );
         #endif
+
+        /* Update NVS index */
+        nvs_index++;
+        if( nvs_index == NVS_MAX_INDEX_VALUE )
+        {
+            nvs_index = 0;
+        }
+        ESP_ERROR_CHECK( nvs_set_index( nvs_index ) );
 
         /* Reset FIFO */
         mpu.setFIFOEnabled( false );
@@ -229,14 +250,18 @@ nvs_init()
 }
 
 esp_err_t
-nvs_read( uint16_t* data, size_t* len )
+nvs_read( uint16_t* data, size_t* len, uint8_t index )
 {
     nvs_handle_t my_handle;
-    esp_err_t err = nvs_open( NVS_STORAGE_NAME, NVS_READWRITE, &my_handle );
+    esp_err_t err;
+    string key;
+    
+    key = NVS_DATA_KEY_NAME + to_string( index );
+    err = nvs_open( NVS_STORAGE_NAME, NVS_READWRITE, &my_handle );
 
     if ( err == ESP_OK ) 
     {
-        err = nvs_get_blob( my_handle, NVS_KEY_NAME, (void*)data, len );
+        err = nvs_get_blob( my_handle, key.c_str(), (void*)data, len );
         
         if( err == ESP_ERR_NVS_NOT_FOUND )
         {
@@ -250,21 +275,129 @@ nvs_read( uint16_t* data, size_t* len )
 }
 
 esp_err_t
-nvs_write( uint16_t* data, size_t len )
+nvs_write( uint16_t* data, size_t len, uint8_t index )
 {
     nvs_handle_t my_handle;
-    esp_err_t err = nvs_open( NVS_STORAGE_NAME, NVS_READWRITE, &my_handle );
+    esp_err_t err;
+    string key;
+
+    err = nvs_open( NVS_STORAGE_NAME, NVS_READWRITE, &my_handle );
+    if( err != ESP_OK )
+        return err;
+
+    key = NVS_DATA_KEY_NAME + to_string( index );
+    err = nvs_set_blob( my_handle, key.c_str(), (void*)data, len );
+    if( err != ESP_OK )
+        goto esc;
+
+    err = nvs_commit( my_handle );
+
+    esc:
+    nvs_close( my_handle );    
+    return err;
+}
+
+esp_err_t
+nvs_get_index( uint8_t* index_p )
+{
+    nvs_handle_t my_handle;
+    esp_err_t err;
+    
+    err = nvs_open( NVS_STORAGE_NAME, NVS_READWRITE, &my_handle );
 
     if ( err == ESP_OK ) 
     {
-        err = nvs_set_blob( my_handle, NVS_KEY_NAME, (void*)data, len );
-        if( err == ESP_OK )
+        err = nvs_get_u8( my_handle, NVS_INDEX_KEY_NAME, index_p );
+        
+        if( err == ESP_ERR_NVS_NOT_FOUND )
         {
-            err = nvs_commit( my_handle );
+            *index_p = 0;
+            err = ESP_OK;
         }
         nvs_close( my_handle );
     }
     
+    return err;
+}
+
+esp_err_t
+nvs_set_index( uint8_t index )
+{
+    nvs_handle_t my_handle;
+    esp_err_t err;
+    
+    err = nvs_open( NVS_STORAGE_NAME, NVS_READWRITE, &my_handle );
+    if( err != ESP_OK )
+        return err;
+
+    err = nvs_set_u8( my_handle, NVS_INDEX_KEY_NAME, index );
+    if( err != ESP_OK )
+        goto esc;
+
+    err = nvs_commit( my_handle );
+
+    esc:
+    nvs_close( my_handle );    
+    return err;
+}
+
+esp_err_t
+nvs_check()
+{
+    uint16_t *buf, i, j;
+    double avg;
+    size_t s;
+    fort::char_table table;
+    esp_err_t err;
+
+    table.set_border_style( FT_SOLID_ROUND_STYLE );
+
+    table << fort::header << "i" << "ii" << "Data" << fort::endr;
+    err = ESP_OK;
+    buf = ( uint16_t* ) malloc( MPU_GROUP_SIZE * sizeof( uint16_t ) );
+    avg = 0;
+
+    for( j = 0; j < NVS_MAX_INDEX_VALUE; j++ )
+    {
+        err = nvs_read( buf, &s, j );
+        if( err != ESP_OK )
+            goto esc;
+        
+        for( i = 0; i < MPU_GROUP_SIZE; i++ )
+        {
+            table << j << i << buf[ i ] << fort::endr;
+            avg += buf[ i ];
+        }
+    }
+
+    avg = avg / ( MPU_GROUP_SIZE * NVS_MAX_INDEX_VALUE );
+
+    ESP_LOGI( ACCELEROMETER_TASK_TAG, "NVS Check\n\n%s", table.to_string().c_str() );
+    ESP_LOGI( ACCELEROMETER_TASK_TAG, "AVG=%0.2f", avg );
+
+    esc:
+    free( buf );
+    return err;
+}
+
+esp_err_t
+nvs_get_entry_count( size_t* count_p )
+{
+    nvs_handle_t my_handle;
+    esp_err_t err;
+
+    err = nvs_init();
+    if( err != ESP_OK )
+        return err;
+
+    err = nvs_open( NVS_STORAGE_NAME, NVS_READWRITE, &my_handle );
+    if( err != ESP_OK )
+        return err;
+
+    err = nvs_get_used_entry_count( my_handle, count_p );
+
+    nvs_close( my_handle );
+
     return err;
 }
 

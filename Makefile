@@ -16,6 +16,10 @@ clean:
 erase:
 	./scripts/erase_flash.sh
 
+flashandtest:
+	make flash
+	make monitor
+	
 eraseandtest:
 	make erase 
 	make flash

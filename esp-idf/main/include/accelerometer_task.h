@@ -10,8 +10,10 @@
 #define I2C_MASTER_FREQ_HZ          ( ( uint32_t ) 500000   )
 #define I2C_SLAVE_ADDR              ( 0x68                  )
 
-#define NVS_STORAGE_NAME            ( ( const char* ) "mpudate"     )
-#define NVS_KEY_NAME                ( ( const char* ) "mpukey"      )
+#define NVS_STORAGE_NAME            ( ( const char* ) "storage"     )
+#define NVS_DATA_KEY_NAME           ( ( const char* ) "data"        )
+#define NVS_INDEX_KEY_NAME          ( ( const char* ) "index"       )
+#define NVS_MAX_INDEX_VALUE         ( ( uint8_t ) 4                 )
 
 #define MPU_AXIS_COUNT              ( ( uint8_t ) 3                     )
 #define MPU_FIFO_SIZE               ( ( size_t ) 1024                   )
@@ -20,11 +22,13 @@
 void prvAccelerometerTask       ( void *                                );
 void start_accelerometer_task   ( void                                  );
 
-esp_err_t nvs_init              ( void              );
-esp_err_t nvs_read              ( uint16_t*, size_t* );
-esp_err_t nvs_write             ( uint16_t*, size_t  );
-esp_err_t nvs_check_values      ( void              );
-esp_err_t nvs_get_free_entries  ( uint16_t *        );
+esp_err_t nvs_init              ( void                          );
+esp_err_t nvs_read              ( uint16_t*, size_t*, uint8_t   );
+esp_err_t nvs_write             ( uint16_t*, size_t, uint8_t    );
+esp_err_t nvs_check             ( void                          );
+esp_err_t nvs_get_entry_count   ( size_t*                       );
+esp_err_t nvs_get_index         ( uint8_t*                      );
+esp_err_t nvs_set_index         ( uint8_t                       );
 
 esp_err_t i2c_init              ( void              );
 
