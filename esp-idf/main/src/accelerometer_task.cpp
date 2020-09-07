@@ -1,9 +1,6 @@
 // TODO: stub function
 // TODO: slow i2c freq
 
-// quieto:      
-// caminando:   16454
-
 #include "../include/accelerometer_task.h"
 
 /* Static variables declarations */
@@ -13,12 +10,19 @@ static I2Cdev i2cdev;
 /* ######################################################################### */
 /* ######################################################################### */
 
+#define NVS_CHECK_ON    0
+
+/* ######################################################################### */
+/* ######################################################################### */
+
 void 
 start_accelerometer_task( void )
 {
-    // ESP_ERROR_CHECK( nvs_init() );
-    // ESP_ERROR_CHECK( nvs_check() );
-    // return;
+    #if NVS_CHECK_ON == 1
+    ESP_ERROR_CHECK( nvs_init() );
+    ESP_ERROR_CHECK( nvs_check() );
+    return;
+    #endif
 
     /* I2C init */
     i2cdev = I2Cdev();
