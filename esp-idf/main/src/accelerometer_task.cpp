@@ -1,8 +1,4 @@
 // TODO: stub function
-// TODO: slow i2c freq
-
-// quieto:      
-// caminando:   16454
 
 #include "../include/accelerometer_task.h"
 
@@ -13,24 +9,31 @@ static I2Cdev i2cdev;
 /* ######################################################################### */
 /* ######################################################################### */
 
+#define NVS_CHECK_ON    0
+
+/* ######################################################################### */
+/* ######################################################################### */
+
 void 
 start_accelerometer_task( void )
 {
-    // ESP_ERROR_CHECK( nvs_init() );
-    // ESP_ERROR_CHECK( nvs_check() );
-    // return;
+    #if NVS_CHECK_ON == 1
+    ESP_ERROR_CHECK( nvs_init() );
+    ESP_ERROR_CHECK( nvs_check() );
+    return;
+    #endif
 
     /* I2C init */
     i2cdev = I2Cdev();
     ESP_ERROR_CHECK( i2c_init() );
-    #if ACCELEROMETER_TASK_LOGGING == 1
+    #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
     ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "I2C initialized" );
     #endif
 
     /* MPU init */
     mpu = MPU6050();
     mpu_init();
-    #if ACCELEROMETER_TASK_LOGGING == 1
+    #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
     ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "MPU initialized" );
     #endif
 
@@ -43,7 +46,7 @@ start_accelerometer_task( void )
 
     /* NVS init */
     ESP_ERROR_CHECK( nvs_init() );
-    #if ACCELEROMETER_TASK_LOGGING == 1
+    #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
     ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "NVS initialized" );
     #endif
 
@@ -51,7 +54,7 @@ start_accelerometer_task( void )
 	xTaskCreate( 	prvAccelerometerTask, "accelerometer", 
 					ACCELEROMETER_TASK_STACK_SIZE, NULL, 
 					ACCELEROMETER_TASK_PRIORITY, NULL );  
-    #if ACCELEROMETER_TASK_LOGGING == 1 
+    #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0 
     ESP_LOGI( ACCELEROMETER_TASK_TAG, "Task initialized" );    
     #endif
 }
@@ -72,14 +75,15 @@ prvAccelerometerTask( void *pvParameters )
 	{    
         /* Variables declaration */
         uint8_t nvs_index;
-        uint16_t i, fifo_count;
-        #if ACCELEROMETER_TASK_LOGGING == 1
+        uint16_t i;
+        #if ACCELEROMETER_TASK_LOGGING_LEVEL > 1
+        uint16_t fifo_count;
         fort::char_table table;
         #endif
         
         /* Variables initialization */
         i = 0;
-        #if ACCELEROMETER_TASK_LOGGING == 1
+        #if ACCELEROMETER_TASK_LOGGING_LEVEL > 1
         table << fort::header << "N" << "Ax" << "Ay" << "Az" << "A" << "FIFO" << fort::endr;
         table.set_border_style( FT_SOLID_ROUND_STYLE );
         #endif
@@ -114,11 +118,13 @@ prvAccelerometerTask( void *pvParameters )
             /* Module convertion to 16-bit */
             mpu_module_array[ i ] = atoi( to_string( module ).c_str() );
 
+            #if ACCELEROMETER_TASK_LOGGING_LEVEL > 1
             /* Updating FIFO count */
             fifo_count = mpu.getFIFOCount();
+            #endif
             
+            #if ACCELEROMETER_TASK_LOGGING_LEVEL > 1
             /* Concat log data */
-            #if ACCELEROMETER_TASK_LOGGING == 1
             table << i + 1;
             for( j = 0; j < MPU_AXIS_COUNT; j++ )
                 table << mpu_accel_values[ j ];
@@ -130,8 +136,10 @@ prvAccelerometerTask( void *pvParameters )
         ESP_ERROR_CHECK( nvs_write( mpu_module_array, MPU_GROUP_SIZE * 2, nvs_index ) );
 
         /* Log data */
-        #if ACCELEROMETER_TASK_LOGGING == 1
+        #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0 
+        #if ACCELEROMETER_TASK_LOGGING_LEVEL > 1 
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "MPU data log\n\n%s", table.to_string().c_str() );
+        #endif
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "Data stored in NVS entry number %d", nvs_index );
         #endif
 
@@ -148,14 +156,14 @@ prvAccelerometerTask( void *pvParameters )
         mpu.resetFIFO();
 
         /* Sleep */
-        #if ACCELEROMETER_TASK_LOGGING == 1
+        #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Deep-sleep mode on" );
         #endif
         start_deep_sleep_mode();
     }
 
     /* Task should not reach here */
-    #if ACCELEROMETER_TASK_LOGGING == 1
+    #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
     ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Task ended" );
     #endif
     free( mpu_accel_values );
@@ -239,7 +247,7 @@ nvs_init()
     esp_err_t err = nvs_flash_init();
     if ( err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND ) 
     {
-        #if ACCELEROMETER_TASK_LOGGING == 1
+        #if ACCELEROMETER_TASK_LOGGING_LEVEL == 1
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "NVS partition was truncated and needs to be erased. Retrying..." );
         #endif
         ESP_ERROR_CHECK( nvs_flash_erase() );
