@@ -5,9 +5,8 @@
 #define ACCELEROMETER_TASK_STACK_SIZE		    ( configMINIMAL_STACK_SIZE + 6000   ) 
 #define ACCELEROMETER_TASK_TAG                  ( ( const char* ) "Accelerometer"   )
 #define ACCELEROMETER_TASK_WATERMARK            ( 0                                 )
-#define ACCELEROMETER_TASK_LOGGING_LEVEL        ( 1                                 )
 
-#define I2C_MASTER_FREQ_HZ          ( ( uint32_t ) 500000   )
+#define I2C_MASTER_FREQ_HZ          ( ( uint32_t ) 1000   )
 #define I2C_SLAVE_ADDR              ( 0x68                  )
 
 #define NVS_STORAGE_NAME            ( ( const char* ) "storage"     )
@@ -18,6 +17,8 @@
 #define MPU_AXIS_COUNT              ( ( uint8_t ) 3                     )
 #define MPU_FIFO_SIZE               ( ( size_t ) 1024                   )
 #define MPU_GROUP_SIZE              ( ( size_t ) 150                    )
+
+#define RTC_MPU_DATA_SIZE           ( ( uint8_t ) 10000                  )
 
 void prvAccelerometerTask       ( void *                                );
 void start_accelerometer_task   ( void                                  );
@@ -36,4 +37,5 @@ void mpu_init                   ( void              );
 void mpu_check_reg_values       ( void              );
 
 void start_deep_sleep_mode      ( void              );
+void check_rtc_values           ( void              );
 
