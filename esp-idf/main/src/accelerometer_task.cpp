@@ -70,22 +70,24 @@ prvAccelerometerTask( void *pvParameters )
     for(;;) 
 	{    
         /* Variables declaration */
-        uint16_t i;
+        uint16_t i, mpu_index;
         #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
         #if ACCELEROMETER_TASK_LOGGING_LEVEL > 1
         uint16_t fifo_count;
         fort::char_table table;
         #endif
-        uint16_t rtc_index_first = rtc_mpu_data_index;
+        uint16_t rtc_index_first;
         #endif
         
         /* Variables initialization */
         i = 0;
+        mpu_index = rtc_mpu_data_index;
         #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
         #if ACCELEROMETER_TASK_LOGGING_LEVEL > 1
         table << fort::header << "N" << "Ax" << "Ay" << "Az" << "A" << "FIFO" << fort::endr;
         table.set_border_style( FT_SOLID_ROUND_STYLE );
         #endif
+        rtc_index_first = mpu_index;
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Receiving data" );
         #endif
 
@@ -114,8 +116,8 @@ prvAccelerometerTask( void *pvParameters )
             module = (uint32_t) sqrt( (double)module );
 
             /* Module convertion to 16-bit and store into RTC RAM */
-            rtc_mpu_data_array[ rtc_mpu_data_index ] = atoi( to_string( module ).c_str() );
-            rtc_mpu_data_index++;
+            rtc_mpu_data_array[ mpu_index ] = atoi( to_string( module ).c_str() );
+            mpu_index++;
 
             #if ACCELEROMETER_TASK_LOGGING_LEVEL > 1
             /* Updating FIFO count */
@@ -124,7 +126,7 @@ prvAccelerometerTask( void *pvParameters )
             
             #if ACCELEROMETER_TASK_LOGGING_LEVEL > 1
             /* Concat log data */
-            table << rtc_mpu_data_index;
+            table << mpu_index;
             for( j = 0; j < MPU_AXIS_COUNT; j++ )
                 table << mpu_accel_values[ j ];
             table << module << fifo_count << fort::endr;
@@ -138,6 +140,9 @@ prvAccelerometerTask( void *pvParameters )
         #endif
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "Data stored in RTC from index %d to %d", rtc_index_first, rtc_mpu_data_index );
         #endif
+
+        /* Update RTC index */
+        rtc_mpu_data_index = mpu_index;
 
         /* Reset FIFO */
         mpu.setFIFOEnabled( false );
