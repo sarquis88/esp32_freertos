@@ -1,4 +1,5 @@
 // TODO: stub function
+// TODO: binary image header
 
 #include "../include/accelerometer_task.h"
 
@@ -7,14 +8,12 @@ static MPU6050 mpu;
 static I2Cdev i2cdev;
 
 /* RTC variables declarations */
-RTC_DATA_ATTR uint16_t rtc_mpu_data_array[ RTC_MPU_DATA_SIZE ];
+RTC_DATA_ATTR uint16_t rtc_mpu_data_array[ 1 ];
 RTC_DATA_ATTR uint16_t rtc_mpu_data_index = 0;
 
-/* ######################################################################### */
-/* ######################################################################### */
-
+/* Precompilation definitions */
 #define ACCELEROMETER_TASK_LOGGING_LEVEL        ( 1 )
-#define RTC_CHECK_VALUES                        ( 0 )             
+#define ACCELEROMETER_TASK_SHOW_WATERMARK       ( 0 )
 
 /* ######################################################################### */
 /* ######################################################################### */
@@ -43,11 +42,6 @@ start_accelerometer_task( void )
         start_deep_sleep_mode();
     }
 
-    #if RTC_CHECK_VALUES == 1
-    /* Check RTC MPU values */
-    check_rtc_values();
-    #endif
-
     /* Task creation */
 	xTaskCreate( 	prvAccelerometerTask, "accelerometer", 
 					ACCELEROMETER_TASK_STACK_SIZE, NULL, 
@@ -60,40 +54,46 @@ start_accelerometer_task( void )
 void 
 prvAccelerometerTask( void *pvParameters )
 {  
-    /* Variables declaration */
-    int16_t *mpu_accel_values;
-
-    /* Variables initialization */
-    mpu_accel_values = ( int16_t*  ) malloc ( MPU_AXIS_COUNT * sizeof( int16_t ) );
-
-    /* Start task loop */
     for(;;) 
-	{    
+	{
         /* Variables declaration */
-        uint16_t i, mpu_index;
+        uint16_t i;
+        int16_t mpu_accel_values[ MPU_AXIS_COUNT ];
         #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
-        #if ACCELEROMETER_TASK_LOGGING_LEVEL > 1
-        uint16_t fifo_count;
-        fort::char_table table;
-        #endif
         uint16_t rtc_index_first;
         #endif
         
         /* Variables initialization */
         i = 0;
-        mpu_index = rtc_mpu_data_index;
         #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
-        #if ACCELEROMETER_TASK_LOGGING_LEVEL > 1
-        table << fort::header << "N" << "Ax" << "Ay" << "Az" << "A" << "FIFO" << fort::endr;
-        table.set_border_style( FT_SOLID_ROUND_STYLE );
-        #endif
-        rtc_index_first = mpu_index;
+        rtc_index_first = rtc_mpu_data_index;
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Receiving data" );
         #endif
 
         /* Start MPU data read */
         for( i = 0; i < MPU_GROUP_SIZE; i++ ) 
         {
+            /* RTC RAM storage check */
+            if( rtc_mpu_data_index >= RTC_MPU_DATA_SIZE )
+            {
+                /* Log RTC storage values */ 
+                #if ACCELEROMETER_TASK_LOGGING_LEVEL > 1
+                check_rtc_values( 0, rtc_mpu_data_index );
+                #endif
+
+                /* Send data through WiFi */
+                #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
+                ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "RTC storage is full. Sending data through WiFi" );
+                #endif
+                send_data();
+
+                /* Clearing RTC storage for using it again */ 
+                #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
+                ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Clearing RTC storage" );
+                #endif
+                clear_rtc_storage();
+            }
+
             /* Variables declaration */
             uint8_t j;
             uint32_t module;
@@ -116,50 +116,33 @@ prvAccelerometerTask( void *pvParameters )
             module = (uint32_t) sqrt( (double)module );
 
             /* Module convertion to 16-bit and store into RTC RAM */
-            rtc_mpu_data_array[ mpu_index ] = atoi( to_string( module ).c_str() );
-            mpu_index++;
-
-            #if ACCELEROMETER_TASK_LOGGING_LEVEL > 1
-            /* Updating FIFO count */
-            fifo_count = mpu.getFIFOCount();
-            #endif
-            
-            #if ACCELEROMETER_TASK_LOGGING_LEVEL > 1
-            /* Concat log data */
-            table << mpu_index;
-            for( j = 0; j < MPU_AXIS_COUNT; j++ )
-                table << mpu_accel_values[ j ];
-            table << module << fifo_count << fort::endr;
-            #endif
+            rtc_mpu_data_array[ rtc_mpu_data_index ] = atoi( to_string( module ).c_str() );
+            rtc_mpu_data_index++;
         }
 
         /* Log data */
         #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
-        #if ACCELEROMETER_TASK_LOGGING_LEVEL > 1 
-        ESP_LOGI( ACCELEROMETER_TASK_TAG, "MPU data log\n\n%s", table.to_string().c_str() );
+        #if ACCELEROMETER_TASK_LOGGING_LEVEL > 2
+        check_rtc_values( rtc_index_first, rtc_mpu_data_index);
         #endif
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "Data stored in RTC from index %d to %d", rtc_index_first, rtc_mpu_data_index );
         #endif
-
-        /* Update RTC index */
-        rtc_mpu_data_index = mpu_index;
 
         /* Reset FIFO */
         mpu.setFIFOEnabled( false );
         mpu.resetFIFO();
 
-        /* Sleep */
+        /* Sleeping until FIFO overflows */
         #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Deep-sleep mode on" );
         #endif
         start_deep_sleep_mode();
     }
 
-    /* Task should not reach here */
+    /* Exit routine. Task should not reach here */
     #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
     ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Task ended" );
     #endif
-    free( mpu_accel_values );
 	vTaskDelete( NULL );
 }
 
@@ -242,26 +225,50 @@ start_deep_sleep_mode()
 }
 
 void
-check_rtc_values()
+check_rtc_values( uint16_t inf_limit, uint16_t sup_limit)
 {
-    if( rtc_mpu_data_index < 1 )
+    if( rtc_mpu_data_index >= inf_limit && rtc_mpu_data_index <= sup_limit )
     {
-        ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "RTC storage empty" );
-        return;
+        uint16_t i;
+        float avg;
+
+        avg = 0;
+
+        for( i = 0; i < rtc_mpu_data_index; i++ )
+        {
+            avg += rtc_mpu_data_array[ i ];
+
+            ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] %d", i, rtc_mpu_data_array[ i ] );
+        }
+
+        avg = avg / rtc_mpu_data_index;
+
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "[AVG] %.2f", avg );   
     }
+    else
+    {
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "Nothing into the RTC limits [%d, %d]", inf_limit, sup_limit );
+    }
+}
+
+void
+clear_rtc_storage()
+{
     uint16_t i;
-    float avg;
 
-    avg = 0;
+    #pragma GCC diagnostic ignored "-Waggressive-loop-optimizations"
 
-    for( i = 0; i < rtc_mpu_data_index; i++ )
-    {
-        avg += rtc_mpu_data_array[ i ];
+    for( i = 0; i < RTC_MPU_DATA_SIZE; i++ )
+        rtc_mpu_data_array[ i ] = 0;
 
-        ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] %d", i, rtc_mpu_data_array[ i ] );
-    }
+    #pragma GCC diagnostic pop
 
-    avg = avg / rtc_mpu_data_index;
 
-    ESP_LOGI( ACCELEROMETER_TASK_TAG, "[AVG] %.2f", avg );
+    rtc_mpu_data_index = 0;
+}
+
+void
+send_data()
+{
+    return;
 }

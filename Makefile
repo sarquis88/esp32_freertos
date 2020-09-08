@@ -17,10 +17,8 @@ erase:
 	./scripts/erase_flash.sh
 
 flashandtest:
-	make flash
-	make monitor
+	./scripts/flashandtest.sh
 	
 eraseandtest:
 	make erase 
-	make flash
-	make monitor
+	make flashandtest
