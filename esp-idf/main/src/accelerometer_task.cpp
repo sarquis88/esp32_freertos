@@ -6,6 +6,8 @@
 /* Static variables declarations */
 static MPU6050 mpu;
 static I2Cdev i2cdev;
+static xQueueHandle* reception_queue;
+static xQueueHandle* sending_queue;
 
 /* RTC variables declarations */
 RTC_DATA_ATTR half rtc_mpu_data_array[ 1 ];
@@ -19,8 +21,12 @@ RTC_DATA_ATTR uint16_t rtc_mpu_data_index = 0;
 /* ######################################################################### */
 
 void 
-start_accelerometer_task( void )
+start_accelerometer_task( xQueueHandle* reception, xQueueHandle* sending )
 {
+    /* Asign passed queue to local one */
+    reception_queue = reception;
+    sending_queue = sending;
+
     /* I2C init */
     i2cdev = I2Cdev();
     ESP_ERROR_CHECK( i2c_init() );
@@ -57,28 +63,33 @@ prvAccelerometerTask( void *pvParameters )
     for(;;) 
 	{
         /* Variables declaration */
+        char queue_buffer;
         uint16_t i;
         int16_t mpu_accel_values[ MPU_AXIS_COUNT ];
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-        uint16_t rtc_index_first;
+        uint16_t rtc_index_first, fixed_rtc_index_first;
         #endif
         
         /* Variables initialization */
         i = 0;
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
         rtc_index_first = rtc_mpu_data_index;
+        fixed_rtc_index_first = rtc_mpu_data_index;
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Receiving data" );
         #endif
 
         /* Start MPU data read */
         for( i = 0; i < MPU_GROUP_SIZE; i++ ) 
         {
-            /* RTC RAM storage check */
+            /* Checking if RTC storage is full */
             if( rtc_mpu_data_index >= RTC_MPU_DATA_SIZE )
             {
-                /* Log RTC storage values */ 
-                #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 1
-                check_rtc_values( 0, rtc_mpu_data_index );
+                /* Log last data stored */
+                #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
+                #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 2
+                check_rtc_values( rtc_index_first, rtc_mpu_data_index );
+                #endif
+                rtc_index_first = 0;
                 #endif
 
                 /* Send data through WiFi */
@@ -92,6 +103,12 @@ prvAccelerometerTask( void *pvParameters )
                 ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Clearing RTC storage" );
                 #endif
                 clear_rtc_storage();
+
+                /* Wait for wifi to send all data */
+                if( xQueueReceive( *reception_queue, &queue_buffer, portMAX_DELAY ) ) 
+                {
+                    ESP_LOGI( ACCELEROMETER_TASK_TAG, "Message received: %c", queue_buffer );
+                }
             }
 
             /* Variables declaration */
@@ -130,9 +147,9 @@ prvAccelerometerTask( void *pvParameters )
         /* Log data */ 
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 2
-        check_rtc_values( rtc_index_first, rtc_mpu_data_index);
+        check_rtc_values( rtc_index_first, rtc_mpu_data_index );
         #endif
-        ESP_LOGI( ACCELEROMETER_TASK_TAG, "Data stored in RTC from index %d to %d", rtc_index_first, rtc_mpu_data_index );
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "Data stored in RTC from index %d to %d", fixed_rtc_index_first, rtc_mpu_data_index - 1 );
         #endif
 
         /* Reset FIFO */
@@ -234,28 +251,10 @@ start_deep_sleep_mode()
 void
 check_rtc_values( uint16_t inf_limit, uint16_t sup_limit)
 {
-    if( rtc_mpu_data_index >= inf_limit && rtc_mpu_data_index <= sup_limit )
-    {
-        uint16_t i;
-        float avg;
+    uint16_t i;
 
-        avg = 0;
-
-        for( i = 0; i < rtc_mpu_data_index; i++ )
-        {
-            avg += ( float ) rtc_mpu_data_array[ i ];
-
-            ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] %f g", i, ( float ) rtc_mpu_data_array[ i ] );
-        }
-
-        avg = avg / rtc_mpu_data_index;
-
-        ESP_LOGI( ACCELEROMETER_TASK_TAG, "[AVG] %f g", avg );   
-    }
-    else
-    {
-        ESP_LOGI( ACCELEROMETER_TASK_TAG, "Nothing into the RTC limits [%d, %d]", inf_limit, sup_limit );
-    }
+    for( i = inf_limit; i < sup_limit; i++ )
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] %f g", i, ( float ) rtc_mpu_data_array[ i ] );
 }
 
 void
@@ -276,5 +275,6 @@ clear_rtc_storage()
 void
 send_data()
 {
+    xQueueSend( *sending_queue, "S", portMAX_DELAY );
     return;
 }

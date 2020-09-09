@@ -25,12 +25,12 @@ using namespace std;
 
 #define BUFFER_SIZE						( 64 					)
 
-#define MAIN_LOGGING_TAG              	( ( const char * ) "Main" )
+#define MAIN_TASK_TAG          			( ( const char* ) "Main"   )
 
 extern "C"
 {
 	void app_main	( void );
 }
 
-extern void start_taskslist_task           	( void		);
-extern void start_accelerometer_task       	( void		);
+extern void start_taskslist_task           	( void								);
+extern void start_accelerometer_task       	( xQueueHandle*, xQueueHandle*		);
