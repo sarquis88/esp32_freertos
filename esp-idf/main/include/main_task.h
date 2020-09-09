@@ -10,6 +10,7 @@
 #include <esp_log.h>
 
 #include "../lib/MPU6050/MPU6050.h"
+#include "../lib/half_float/umHalf.h"
 
 using namespace std;
 

@@ -8,11 +8,11 @@ static MPU6050 mpu;
 static I2Cdev i2cdev;
 
 /* RTC variables declarations */
-RTC_DATA_ATTR uint16_t rtc_mpu_data_array[ 1 ];
+RTC_DATA_ATTR half rtc_mpu_data_array[ 1 ];
 RTC_DATA_ATTR uint16_t rtc_mpu_data_index = 0;
 
 /* Precompilation definitions */
-#define ACCELEROMETER_TASK_LOGGING_LEVEL        ( 1 )
+#define ACCELEROMETER_TASK_VERBOSITY_LEVEL      ( 3 )
 #define ACCELEROMETER_TASK_SHOW_WATERMARK       ( 0 )
 
 /* ######################################################################### */
@@ -24,14 +24,14 @@ start_accelerometer_task( void )
     /* I2C init */
     i2cdev = I2Cdev();
     ESP_ERROR_CHECK( i2c_init() );
-    #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
+    #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
     ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "I2C initialized" );
     #endif
 
     /* MPU init */
     mpu = MPU6050();
     mpu_init();
-    #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
+    #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
     ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "MPU initialized" );
     #endif
 
@@ -46,7 +46,7 @@ start_accelerometer_task( void )
 	xTaskCreate( 	prvAccelerometerTask, "accelerometer", 
 					ACCELEROMETER_TASK_STACK_SIZE, NULL, 
 					ACCELEROMETER_TASK_PRIORITY, NULL );  
-    #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0 
+    #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0 
     ESP_LOGI( ACCELEROMETER_TASK_TAG, "Task initialized" );    
     #endif
 }
@@ -59,13 +59,13 @@ prvAccelerometerTask( void *pvParameters )
         /* Variables declaration */
         uint16_t i;
         int16_t mpu_accel_values[ MPU_AXIS_COUNT ];
-        #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
+        #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
         uint16_t rtc_index_first;
         #endif
         
         /* Variables initialization */
         i = 0;
-        #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
+        #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
         rtc_index_first = rtc_mpu_data_index;
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Receiving data" );
         #endif
@@ -77,18 +77,18 @@ prvAccelerometerTask( void *pvParameters )
             if( rtc_mpu_data_index >= RTC_MPU_DATA_SIZE )
             {
                 /* Log RTC storage values */ 
-                #if ACCELEROMETER_TASK_LOGGING_LEVEL > 1
+                #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 1
                 check_rtc_values( 0, rtc_mpu_data_index );
                 #endif
 
                 /* Send data through WiFi */
-                #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
+                #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
                 ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "RTC storage is full. Sending data through WiFi" );
                 #endif
                 send_data();
 
                 /* Clearing RTC storage for using it again */ 
-                #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
+                #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
                 ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Clearing RTC storage" );
                 #endif
                 clear_rtc_storage();
@@ -96,7 +96,8 @@ prvAccelerometerTask( void *pvParameters )
 
             /* Variables declaration */
             uint8_t j;
-            uint32_t module;
+            half module_half;
+            float module;
 
             /* Data request and reception */
             mpu.getFIFOBytes( (uint8_t*) mpu_accel_values, MPU_AXIS_COUNT * 2 );
@@ -112,17 +113,23 @@ prvAccelerometerTask( void *pvParameters )
             /* Calculate data module */
             module = 0;
             for( j = 0; j < MPU_AXIS_COUNT; j++ )
-                module += (uint32_t) mpu_accel_values[ j ] * mpu_accel_values[ j ];
-            module = (uint32_t) sqrt( (double)module );
+                module += mpu_accel_values[ j ] * mpu_accel_values[ j ];
+            module = sqrt( module );
+            
+            /* Module normalization */
+            module = module / MPU_SENSITIVITY;
+
+            /* Module to half float */
+            module_half = module;
 
             /* Module convertion to 16-bit and store into RTC RAM */
-            rtc_mpu_data_array[ rtc_mpu_data_index ] = atoi( to_string( module ).c_str() );
+            rtc_mpu_data_array[ rtc_mpu_data_index ] = module_half;
             rtc_mpu_data_index++;
         }
 
-        /* Log data */
-        #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
-        #if ACCELEROMETER_TASK_LOGGING_LEVEL > 2
+        /* Log data */ 
+        #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
+        #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 2
         check_rtc_values( rtc_index_first, rtc_mpu_data_index);
         #endif
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "Data stored in RTC from index %d to %d", rtc_index_first, rtc_mpu_data_index );
@@ -133,14 +140,14 @@ prvAccelerometerTask( void *pvParameters )
         mpu.resetFIFO();
 
         /* Sleeping until FIFO overflows */
-        #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
+        #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Deep-sleep mode on" );
         #endif
         start_deep_sleep_mode();
     }
 
     /* Exit routine. Task should not reach here */
-    #if ACCELEROMETER_TASK_LOGGING_LEVEL > 0
+    #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
     ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Task ended" );
     #endif
 	vTaskDelete( NULL );
@@ -236,14 +243,14 @@ check_rtc_values( uint16_t inf_limit, uint16_t sup_limit)
 
         for( i = 0; i < rtc_mpu_data_index; i++ )
         {
-            avg += rtc_mpu_data_array[ i ];
+            avg += ( float ) rtc_mpu_data_array[ i ];
 
-            ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] %d", i, rtc_mpu_data_array[ i ] );
+            ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] %f g", i, ( float ) rtc_mpu_data_array[ i ] );
         }
 
         avg = avg / rtc_mpu_data_index;
 
-        ESP_LOGI( ACCELEROMETER_TASK_TAG, "[AVG] %.2f", avg );   
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "[AVG] %f g", avg );   
     }
     else
     {
@@ -259,10 +266,9 @@ clear_rtc_storage()
     #pragma GCC diagnostic ignored "-Waggressive-loop-optimizations"
 
     for( i = 0; i < RTC_MPU_DATA_SIZE; i++ )
-        rtc_mpu_data_array[ i ] = 0;
+        rtc_mpu_data_array[ i ] = 0.f;
 
     #pragma GCC diagnostic pop
-
 
     rtc_mpu_data_index = 0;
 }
