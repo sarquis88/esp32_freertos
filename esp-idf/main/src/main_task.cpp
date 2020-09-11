@@ -1,5 +1,7 @@
 #include "../include/main_task.h"
 
+// TODO: I2C in deep-sleep mode
+
 /* ######################################################################## */
 
 #define ACCELEROMETER_TASK_ON		1
@@ -10,6 +12,10 @@
 void 
 app_main( void )
 {	
+	ESP_LOGI( "", "%s", "" );
+	ESP_LOGI( "", "%s", "" );
+	ESP_LOGI( "", "%s", "" );
+
 	xQueueHandle main_reception_queue;
 	xQueueHandle main_sending_queue;
 	char queue_buffer;

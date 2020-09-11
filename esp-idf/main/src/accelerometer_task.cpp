@@ -24,7 +24,7 @@ RTC_DATA_ATTR uint16_t rtc_mpu_data_index = 0;
 
 void 
 start_accelerometer_task( xQueueHandle* reception, xQueueHandle* sending )
-{
+{    
     /* Asign passed queue to local one */
     reception_queue = reception;
     sending_queue = sending;
