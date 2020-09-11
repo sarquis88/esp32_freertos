@@ -208,7 +208,9 @@ mpu_init()
     mpu.setStandbyYGyroEnabled( true );
     mpu.setStandbyZGyroEnabled( true );
 
-    mpu.setFullScaleAccelRange( 0x00 );
+    // 0x00 -> MPU_SENSITIVITY = 16384
+    // 0x03 -> MPU_SENSITIVITY = 2048
+    mpu.setFullScaleAccelRange( 0x03 ); 
 
     mpu.setDLPFMode( MPU6050_DLPF_BW_5 );
 

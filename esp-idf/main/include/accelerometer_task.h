@@ -11,7 +11,7 @@
 #define MPU_AXIS_COUNT                  ( ( uint8_t     ) 3                 )
 #define MPU_FIFO_SIZE                   ( ( size_t      ) 1024              )
 #define MPU_GROUP_SIZE                  ( ( size_t      ) 170               )
-#define MPU_SENSITIVITY                 ( ( uint16_t    ) 16384             )
+#define MPU_SENSITIVITY                 ( ( uint16_t    ) 2048              )
 
 #define RTC_MPU_DATA_SIZE               ( ( uint16_t    ) 300               )
 
