@@ -61,7 +61,7 @@ prvAccelerometerTask( void *pvParameters )
         if( xQueueReceive( interrupt_queue, &buffer, portMAX_DELAY ) ) 
 		{
 			/* Variables declaration */
-            uint8_t j;
+            uint8_t j, scaled_module;
             float module;
 
             /* Data request and reception */
@@ -71,16 +71,20 @@ prvAccelerometerTask( void *pvParameters )
 
             /* Calculate data module */
             module = 0;
-            for( j = 0; j < MPU_AXIS_COUNT; j++ )
+            for( j = 0; j < MPU_AXIS_COUNT - 1; j++ )
                 module += mpu_accel_values[ j ] * mpu_accel_values[ j ];
             module = sqrt( module );
 
-            /* Module normalization */
-            module = module / MPU_SENSITIVITY;
+            /* Module scaling */
+            scaled_module = ( module / 257.00 );
 
             /* Log data */
             #if ACCELEROMETER_TASK_LOGGING == 1
-                ESP_LOGI( ACCELEROMETER_TASK_TAG, "MPU -> [%f]", module );
+                ESP_LOGI( ACCELEROMETER_TASK_TAG, "X=%d, Y=%d, Z=%d, |A|=%d", 
+                            mpu_accel_values[ 0 ] / 257,
+                            mpu_accel_values[ 1 ] / 257,
+                            mpu_accel_values[ 2 ] / 257,
+                            scaled_module );
             #endif
         }
     }
