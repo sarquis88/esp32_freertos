@@ -71,7 +71,7 @@ prvAccelerometerTask( void *pvParameters )
 
             /* Calculate data module */
             module = 0;
-            for( j = 0; j < MPU_AXIS_COUNT - 1; j++ )
+            for( j = 0; j < MPU_AXIS_COUNT; j++ )
                 module += mpu_accel_values[ j ] * mpu_accel_values[ j ];
             module = sqrt( module );
 
@@ -142,6 +142,10 @@ mpu_init()
 
     mpu.setSleepEnabled( false );
     mpu.setTempSensorEnabled( false );
+
+    mpu.setXAccelOffset( MPU_AX_OFFSET );
+    mpu.setYAccelOffset( MPU_AY_OFFSET );
+    mpu.setZAccelOffset( MPU_AZ_OFFSET );
 }
 
 /* ######################################################################### */
