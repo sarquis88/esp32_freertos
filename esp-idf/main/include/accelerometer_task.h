@@ -11,12 +11,11 @@
 #define MPU_AXIS_COUNT                  ( ( uint8_t     ) 3                 )
 #define MPU_FIFO_SIZE                   ( ( size_t      ) 1024              )
 #define MPU_GROUP_SIZE                  ( ( size_t      ) 170               )
-#define MPU_SENSITIVITY                 ( ( uint16_t    ) 2048              )
-#define MPU_AX_OFFSET                   ( ( int16_t ) -3700                 )
-#define MPU_AY_OFFSET                   ( ( int16_t ) 1500                  )
-#define MPU_AZ_OFFSET                   ( ( int16_t ) -270                  )
+#define MPU_AX_OFFSET                   ( ( int16_t     ) -3700             )
+#define MPU_AY_OFFSET                   ( ( int16_t     ) 1500              )
+#define MPU_AZ_OFFSET                   ( ( int16_t     ) -270              )
 
-#define RTC_MPU_DATA_SIZE               ( ( uint16_t    ) 4000              )
+#define RTC_MPU_DATA_SIZE               ( ( uint16_t    ) 8000              )
 
 void prvAccelerometerTask               ( void *                            );
 void start_accelerometer_task           ( xQueueHandle*, xQueueHandle*      );
@@ -24,10 +23,8 @@ void start_accelerometer_task           ( xQueueHandle*, xQueueHandle*      );
 esp_err_t i2c_init                      ( void                              );
 
 void mpu_init                           ( void                              );
-void mpu_check_reg_values               ( void                              );
 
 void start_deep_sleep_mode              ( void                              );
-void check_rtc_values                   ( uint16_t, uint16_t                );
 void clear_rtc_storage                  ( void                              );
 void send_data                          ( void                              );
 

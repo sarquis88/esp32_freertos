@@ -69,14 +69,13 @@ prvAccelerometerTask( void *pvParameters )
         uint16_t i;
         int16_t mpu_accel_values[ MPU_AXIS_COUNT ];
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-        uint16_t rtc_index_first, fixed_rtc_index_first;
+        uint16_t rtc_index_first;
         #endif
         
         /* Variables initialization */
         i = 0;
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
         rtc_index_first = rtc_mpu_data_index;
-        fixed_rtc_index_first = rtc_mpu_data_index;
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Receiving data" );
         #endif
 
@@ -86,14 +85,6 @@ prvAccelerometerTask( void *pvParameters )
             /* Checking if RTC storage is full */
             if( rtc_mpu_data_index >= RTC_MPU_DATA_SIZE )
             {
-                /* Log last data stored */
-                #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-                #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 2
-                check_rtc_values( rtc_index_first, rtc_mpu_data_index );
-                #endif
-                rtc_index_first = 0;
-                #endif
-
                 /* Send data through WiFi */
                 #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
                 ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "RTC storage is full. Sending data through WiFi" );
@@ -135,19 +126,19 @@ prvAccelerometerTask( void *pvParameters )
             module = sqrt( module );
 
             /* Scaling module */
-            scaled_module = module / 257.00;
+            scaled_module = ( module / 257.00 );
 
-            /* Module convertion to 16-bit and store into RTC RAM */
+            /* Module store into RTC RAM */
             rtc_mpu_data_array[ rtc_mpu_data_index ] = scaled_module;
+            #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 2
+            ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] %d", rtc_mpu_data_index, rtc_mpu_data_array[ rtc_mpu_data_index ] );
+            #endif
             rtc_mpu_data_index++;
         }
 
         /* Log data */ 
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-        #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 2
-        check_rtc_values( rtc_index_first, rtc_mpu_data_index );
-        #endif
-        ESP_LOGI( ACCELEROMETER_TASK_TAG, "Data stored in RTC from index %d to %d", fixed_rtc_index_first, rtc_mpu_data_index - 1 );
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "Data stored in RTC from index %d to %d", rtc_index_first, rtc_mpu_data_index - 1 );
         #endif
 
         /* Reset FIFO */
@@ -210,7 +201,7 @@ mpu_init()
     mpu.setStandbyZGyroEnabled( true );
     mpu.setTempSensorEnabled( false );
 
-    /* Calibrating MPU */
+    /* Calibrating MPU (for 2g sensitivity) */
     mpu.setXAccelOffset( MPU_AX_OFFSET );
     mpu.setYAccelOffset( MPU_AY_OFFSET );
     mpu.setZAccelOffset( MPU_AZ_OFFSET );
@@ -223,7 +214,7 @@ mpu_init()
         0x02 -> 8g  -> MPU_SENSITIVITY = 4096
         0x03 -> 16g -> MPU_SENSITIVITY = 2048
     */        
-    mpu.setFullScaleAccelRange( 0x03 ); 
+    mpu.setFullScaleAccelRange( 0x00 ); 
 
     /* Configuring digital low pass filter */
     mpu.setDLPFMode( MPU6050_DLPF_BW_5 );
@@ -263,15 +254,6 @@ start_deep_sleep_mode()
     ESP_ERROR_CHECK( rtc_gpio_pulldown_en( GPIO_PIN_2 ) );
     ESP_ERROR_CHECK( esp_sleep_enable_ext0_wakeup( GPIO_PIN_2, 1 ) );
 	esp_deep_sleep_start();
-}
-
-void
-check_rtc_values( uint16_t inf_limit, uint16_t sup_limit)
-{
-    uint16_t i;
-
-    for( i = inf_limit; i < sup_limit; i++ )
-        ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] %d", i, rtc_mpu_data_array[ i ] );
 }
 
 void
