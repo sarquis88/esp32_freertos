@@ -12,7 +12,7 @@ static xQueueHandle* reception_queue;
 static xQueueHandle* sending_queue;
 
 /* RTC variables declarations */
-RTC_DATA_ATTR half rtc_mpu_data_array[ 1 ];
+RTC_DATA_ATTR uint8_t rtc_mpu_data_array[ 1 ];
 RTC_DATA_ATTR uint16_t rtc_mpu_data_index = 0;
 
 /* Precompilation definitions */
@@ -114,8 +114,7 @@ prvAccelerometerTask( void *pvParameters )
             }
 
             /* Variables declaration */
-            uint8_t j;
-            half module_half;
+            uint8_t j, scaled_module;
             float module;
 
             /* Data request and reception */
@@ -134,15 +133,12 @@ prvAccelerometerTask( void *pvParameters )
             for( j = 0; j < MPU_AXIS_COUNT; j++ )
                 module += mpu_accel_values[ j ] * mpu_accel_values[ j ];
             module = sqrt( module );
-            
-            /* Module normalization */
-            module = module / MPU_SENSITIVITY;
 
-            /* Module to half float */
-            module_half = module;
+            /* Scaling module */
+            scaled_module = module / 257.00;
 
             /* Module convertion to 16-bit and store into RTC RAM */
-            rtc_mpu_data_array[ rtc_mpu_data_index ] = module_half;
+            rtc_mpu_data_array[ rtc_mpu_data_index ] = scaled_module;
             rtc_mpu_data_index++;
         }
 
@@ -214,6 +210,11 @@ mpu_init()
     mpu.setStandbyZGyroEnabled( true );
     mpu.setTempSensorEnabled( false );
 
+    /* Calibrating MPU */
+    mpu.setXAccelOffset( MPU_AX_OFFSET );
+    mpu.setYAccelOffset( MPU_AY_OFFSET );
+    mpu.setZAccelOffset( MPU_AZ_OFFSET );
+
     /*
         Setting accelerometer fullrange (and sensitivity)
 
@@ -270,7 +271,7 @@ check_rtc_values( uint16_t inf_limit, uint16_t sup_limit)
     uint16_t i;
 
     for( i = inf_limit; i < sup_limit; i++ )
-        ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] %f g", i, ( float ) rtc_mpu_data_array[ i ] );
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] %d", i, rtc_mpu_data_array[ i ] );
 }
 
 void
