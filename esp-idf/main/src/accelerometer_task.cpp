@@ -3,7 +3,7 @@
 /* Static variables declarations */
 static MPU6050 mpu;
 static I2Cdev i2cdev;
-static xQueueHandle gpio_int_queue = NULL;
+static xQueueHandle interrupt_queue = NULL;
 
 /* ######################################################################### */
 /* ######################################################################### */
@@ -26,7 +26,7 @@ start_accelerometer_task( void )
     #endif
 
     /* Interruption queue */
-	gpio_int_queue = xQueueCreate( 10, sizeof(uint32_t) );
+	interrupt_queue = xQueueCreate( 10, sizeof(uint32_t) );
 
 	/* Input config */
 	gpio_config_t io_conf;
@@ -48,31 +48,21 @@ start_accelerometer_task( void )
     #endif
 }
 
-void
-IRAM_ATTR gpio_int_handler( void* arg )
-{
-	uint32_t gpio_num = (uint32_t) arg;
-    xQueueSendFromISR( gpio_int_queue, &gpio_num, NULL);
-}
-
 void 
 prvAccelerometerTask( void *pvParameters )
 {  
     /* Variables declaration */
-    int16_t *mpu_accel_values;
+    int16_t mpu_accel_values[ MPU_AXIS_COUNT ];
     uint32_t buffer;
-
-    /* Variables initialization */
-    mpu_accel_values = ( int16_t*  ) malloc ( MPU_AXIS_COUNT * sizeof( int16_t ) );
 
     /* Start task loop */
     for(;;) 
 	{    
-        if( xQueueReceive( gpio_int_queue, &buffer, portMAX_DELAY ) ) 
+        if( xQueueReceive( interrupt_queue, &buffer, portMAX_DELAY ) ) 
 		{
 			/* Variables declaration */
             uint8_t j;
-            uint32_t module;
+            float module;
 
             /* Data request and reception */
             mpu_accel_values[ 0 ] = mpu.getAccelerationX();
@@ -82,12 +72,15 @@ prvAccelerometerTask( void *pvParameters )
             /* Calculate data module */
             module = 0;
             for( j = 0; j < MPU_AXIS_COUNT; j++ )
-                module += (uint32_t) mpu_accel_values[ j ] * mpu_accel_values[ j ];
-            module = (uint32_t) sqrt( (double)module );
+                module += mpu_accel_values[ j ] * mpu_accel_values[ j ];
+            module = sqrt( module );
+
+            /* Module normalization */
+            module = module / MPU_SENSITIVITY;
 
             /* Log data */
             #if ACCELEROMETER_TASK_LOGGING == 1
-                ESP_LOGI( ACCELEROMETER_TASK_TAG, "MPU -> [%d]", module );
+                ESP_LOGI( ACCELEROMETER_TASK_TAG, "MPU -> [%f]", module );
             #endif
         }
     }
@@ -96,7 +89,6 @@ prvAccelerometerTask( void *pvParameters )
     #if ACCELEROMETER_TASK_LOGGING == 1
     ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Task ended" );
     #endif
-    free( mpu_accel_values );
 	vTaskDelete( NULL );
 }
 
@@ -148,17 +140,12 @@ mpu_init()
     mpu.setTempSensorEnabled( false );
 }
 
-void
-mpu_check_reg_values()
-{
-    uint8_t value = 0;
-    uint8_t reg;
+/* ######################################################################### */
+/* ######################################################################### */
 
-    for( reg = 13; reg < 118; reg++ )
-    {
-        if( i2cdev.readByte( I2C_SLAVE_ADDR, reg, &value ) == true )
-            ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] = %d", reg, value );
-        else
-            ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Cannot check registers values" );
-    }
+void
+IRAM_ATTR gpio_int_handler( void* arg )
+{
+	uint32_t gpio_num = (uint32_t) arg;
+    xQueueSendFromISR( interrupt_queue, &gpio_num, NULL);
 }
