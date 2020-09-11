@@ -1,5 +1,7 @@
-// TODO: stub function
-// TODO: binary image header
+/*
+    ESP32 wakes-up each ~45 seconds, storing 170 accelerometer modules (16-bit each one)
+    The maximum storage is 4000 modules, so in ~17 minutes the memory will be full
+*/
 
 #include "../include/accelerometer_task.h"
 
@@ -78,7 +80,7 @@ prvAccelerometerTask( void *pvParameters )
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Receiving data" );
         #endif
 
-        /* Start MPU data read */
+        /* Start MPU data reading */
         for( i = 0; i < MPU_GROUP_SIZE; i++ ) 
         {
             /* Checking if RTC storage is full */
@@ -200,28 +202,40 @@ i2c_init()
 void
 mpu_init()
 {   
+    /* Enable interrupt when MPU's FIFO is full */
     mpu.setIntFIFOBufferOverflowEnabled( true );
 
+    /* Clear interrupt when reading */
     mpu.setInterruptLatchClear( true );
 
+    /* Disabling gyroscope and temp. sensor */
     mpu.setStandbyXGyroEnabled( true );
     mpu.setStandbyYGyroEnabled( true );
     mpu.setStandbyZGyroEnabled( true );
+    mpu.setTempSensorEnabled( false );
 
-    // 0x00 -> MPU_SENSITIVITY = 16384
-    // 0x03 -> MPU_SENSITIVITY = 2048
+    /*
+        Setting accelerometer fullrange (and sensitivity)
+
+        0x00 -> 2g  -> MPU_SENSITIVITY = 16384
+        0x01 -> 4g  -> MPU_SENSITIVITY = 8192
+        0x02 -> 8g  -> MPU_SENSITIVITY = 4096
+        0x03 -> 16g -> MPU_SENSITIVITY = 2048
+    */        
     mpu.setFullScaleAccelRange( 0x03 ); 
 
+    /* Configuring digital low pass filter */
     mpu.setDLPFMode( MPU6050_DLPF_BW_5 );
 
+    /* Setting accelerometer rate */
     mpu.setRate( 0xFF );
 
+    /* Enabling MPU's FIFO */
     mpu.setFIFOEnabled( true );
-
-    mpu.setAccelFIFOEnabled( true );
-
+    mpu.setAccelFIFOEnabled( true );    
+    
+    /* Starting MPU */
     mpu.setSleepEnabled( false );
-    mpu.setTempSensorEnabled( false );
 }
 
 void

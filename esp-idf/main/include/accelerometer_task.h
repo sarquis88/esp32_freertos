@@ -13,7 +13,7 @@
 #define MPU_GROUP_SIZE                  ( ( size_t      ) 170               )
 #define MPU_SENSITIVITY                 ( ( uint16_t    ) 2048              )
 
-#define RTC_MPU_DATA_SIZE               ( ( uint16_t    ) 300               )
+#define RTC_MPU_DATA_SIZE               ( ( uint16_t    ) 4000              )
 
 void prvAccelerometerTask               ( void *                            );
 void start_accelerometer_task           ( xQueueHandle*, xQueueHandle*      );
