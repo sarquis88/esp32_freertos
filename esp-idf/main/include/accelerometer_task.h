@@ -24,8 +24,8 @@ esp_err_t i2c_init              ( void              );
 
 void mpu_init                   ( void              );
 void mpu_check_reg_values       ( void              );
+void mpu_calibration            ( void              );
 
 void IRAM_ATTR gpio_int_handler ( void*             );
 
-void mapping_to_8bit            ( float, uint8_t*   );
 

@@ -51,6 +51,9 @@ start_accelerometer_task( void )
 void 
 prvAccelerometerTask( void *pvParameters )
 {  
+    /* Auto calibration */
+    //mpu_calibration();
+
     /* Variables declaration */
     int16_t mpu_accel_values[ MPU_AXIS_COUNT ];
     uint32_t buffer;
@@ -140,12 +143,38 @@ mpu_init()
 
     mpu.setRate( 0xFF );
 
-    mpu.setSleepEnabled( false );
-    mpu.setTempSensorEnabled( false );
-
     mpu.setXAccelOffset( MPU_AX_OFFSET );
     mpu.setYAccelOffset( MPU_AY_OFFSET );
     mpu.setZAccelOffset( MPU_AZ_OFFSET );
+
+    mpu.setSleepEnabled( false );
+    mpu.setTempSensorEnabled( false );
+
+    
+}
+
+void
+mpu_calibration()
+{
+    int16_t accel_value, offset;
+
+    offset = 0;
+    
+    while( true )
+    {
+        accel_value = mpu.getAccelerationX();
+
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "AX=%d, OF=%d", accel_value, offset );
+
+        if( accel_value > 0 )
+            offset = offset - 10;
+        else if( accel_value < 0 )
+            offset = offset + 10;
+            
+        mpu.setXAccelOffset( offset );
+
+        vTaskDelay( 100 / portTICK_PERIOD_MS);
+    }
 }
 
 /* ######################################################################### */
