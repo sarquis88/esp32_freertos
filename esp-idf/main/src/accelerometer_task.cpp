@@ -1,4 +1,10 @@
 /*
+    TODO
+        - I2C in sleep mode
+        - Auto calibration
+*/
+
+/*
     ESP32 wakes-up each ~45 seconds, storing 170 accelerometer modules (16-bit each one)
     The maximum storage is 4000 modules, so in ~17 minutes the memory will be full
 */
