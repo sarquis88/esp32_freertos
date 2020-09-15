@@ -1,53 +1,72 @@
 #include "../include/main_task.h"
 
-// TODO: I2C in deep-sleep mode
+/* Static variables declaration */
+static xQueueHandle main_reception_queue;
+static xQueueHandle main_sending_queue;
 
-/* ######################################################################## */
+/* Precompilation definitions */
+#define MAIN_TASK_VERBOSITY_LEVEL      ( 1 )
 
-#define ACCELEROMETER_TASK_ON		1
-#define TASKSLIST_TASK_ON			0
-
-/* ######################################################################## */
+/* ######################################################################### */
+/* ######################################################################### */
 
 void 
 app_main( void )
 {	
-	ESP_LOGI( "", "%s", "" );
-	ESP_LOGI( "", "%s", "" );
-	ESP_LOGI( "", "%s", "" );
+	#if MAIN_TASK_VERBOSITY_LEVEL > 0
+	ESP_LOGI( MAIN_TASK_TAG, "%s", "" );
+	ESP_LOGI( MAIN_TASK_TAG, "%s", "Starting main task" );
+	ESP_LOGI( MAIN_TASK_TAG, "%s", "" );
+	#endif
 
-	xQueueHandle main_reception_queue;
-	xQueueHandle main_sending_queue;
-	char queue_buffer;
+	/* Variables initialization */
+	main_reception_queue 	= xQueueCreate( 6, sizeof( uint16_t ) );
+	main_sending_queue 		= xQueueCreate( 6, sizeof( uint16_t ) );
 
-	main_reception_queue 	= xQueueCreate( 6, sizeof( char ) );
-	main_sending_queue 		= xQueueCreate( 6, sizeof( char ) );
-
-	/* Starts accelerometer senses */
+	/* Starts accelerometer task */
 	start_accelerometer_task( &main_sending_queue, &main_reception_queue );
 
-	for(;;) 
-	{
-        if( xQueueReceive( main_reception_queue, &queue_buffer, portMAX_DELAY ) ) 
-		{
-			ESP_LOGI( MAIN_TASK_TAG, "Message received: %c", queue_buffer );
-
-			if( queue_buffer == 'S' )
-			{
-				vTaskDelay( 5000 / portTICK_PERIOD_MS);
-				xQueueSend( main_sending_queue, "D", portMAX_DELAY );
-			}				
-        }
-    }
+	/* Starts main task */
+	prvMainTask( NULL );
+	
 }
 
-void
-power_test()
+void 
+prvMainTask( void* pvParameters )
 {
-	ESP_LOGI( MAIN_TASK_TAG, "%s", "I'm awake!" );
-	vTaskDelay( 5000 / portTICK_PERIOD_MS);
+	uint8_t queue_buffer;
 
-	ESP_LOGI( MAIN_TASK_TAG, "%s", "I'm going to sleep..." );
-	ESP_ERROR_CHECK( esp_sleep_enable_timer_wakeup( 5000000 ) );
-	esp_deep_sleep_start();
+	for(;;) 
+	{	
+		/* Start receiving any message from queue */
+        xQueueReceive( main_reception_queue, &queue_buffer, portMAX_DELAY );
+
+		if( queue_buffer == CODE_ATOM_STARTTRANSFER )
+		{
+			uint16_t data_size, i;
+
+			/* Send ACK message */
+			queue_buffer = CODE_ACK;
+			xQueueSend( main_sending_queue, &queue_buffer, portMAX_DELAY );
+
+			/* Receive data size */
+			xQueueReceive( main_reception_queue, &data_size, portMAX_DELAY );
+			xQueueSend( main_sending_queue, &queue_buffer, portMAX_DELAY );
+			#if MAIN_TASK_VERBOSITY_LEVEL > 0
+			ESP_LOGI( MAIN_TASK_TAG, "Receiving data. Size %d", data_size );
+			#endif
+
+			/* Receive data */
+			for( i = 0; i < data_size; i++ )
+			{
+				xQueueReceive( main_reception_queue, &queue_buffer, portMAX_DELAY );
+				#if MAIN_TASK_VERBOSITY_LEVEL > 0
+				ESP_LOGI( MAIN_TASK_TAG, "[%d] %d", i, queue_buffer );
+				#endif
+
+				queue_buffer = CODE_ACK;
+				xQueueSend( main_sending_queue, &queue_buffer, portMAX_DELAY );	
+			}
+		}			
+    }
 }

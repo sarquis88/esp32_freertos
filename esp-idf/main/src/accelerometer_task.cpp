@@ -2,11 +2,12 @@
     TODO
         - I2C in sleep mode
         - Auto calibration
+        - Wifi transmission
 */
 
 /*
-    ESP32 wakes-up each ~45 seconds, storing 170 accelerometer modules (16-bit each one)
-    The maximum storage is 4000 modules, so in ~17 minutes the memory will be full
+    ESP32 wakes-up each ~45 seconds, storing 170 accelerometer modules (8-bit each one)
+    The maximum storage is 7990 modules, so in ~35 minutes the memory will be full
 */
 
 #include "../include/accelerometer_task.h"
@@ -23,7 +24,7 @@ RTC_DATA_ATTR uint16_t rtc_mpu_data_index = 0;
 RTC_DATA_ATTR bool first_boot = true;
 
 /* Precompilation definitions */
-#define ACCELEROMETER_TASK_VERBOSITY_LEVEL      ( 3 )
+#define ACCELEROMETER_TASK_VERBOSITY_LEVEL      ( 1 )
 #define ACCELEROMETER_TASK_SHOW_WATERMARK       ( 0 )
 
 /* ######################################################################### */
@@ -76,7 +77,6 @@ prvAccelerometerTask( void *pvParameters )
     for(;;) 
 	{
         /* Variables declaration */
-        char queue_buffer;
         uint16_t i;
         int16_t mpu_accel_values[ MPU_AXIS_COUNT ];
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
@@ -107,12 +107,6 @@ prvAccelerometerTask( void *pvParameters )
                 ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Clearing RTC storage" );
                 #endif
                 clear_rtc_storage();
-
-                /* Wait for wifi to send all data */
-                if( xQueueReceive( *reception_queue, &queue_buffer, portMAX_DELAY ) ) 
-                {
-                    ESP_LOGI( ACCELEROMETER_TASK_TAG, "Message received: %c", queue_buffer );
-                }
             }
 
             /* Variables declaration */
@@ -151,10 +145,6 @@ prvAccelerometerTask( void *pvParameters )
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "Data stored in RTC from index %d to %d", rtc_index_first, rtc_mpu_data_index - 1 );
         #endif
-
-        /* Reset FIFO */
-        mpu.setFIFOEnabled( false );
-        mpu.resetFIFO();
 
         /* Sleeping until FIFO overflows */
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
@@ -217,14 +207,7 @@ mpu_init()
     mpu.setYAccelOffset( MPU_AY_OFFSET );
     mpu.setZAccelOffset( MPU_AZ_OFFSET );
 
-    /*
-        Setting accelerometer fullrange (and sensitivity)
-
-        0x00 -> 2g  -> MPU_SENSITIVITY = 16384
-        0x01 -> 4g  -> MPU_SENSITIVITY = 8192
-        0x02 -> 8g  -> MPU_SENSITIVITY = 4096
-        0x03 -> 16g -> MPU_SENSITIVITY = 2048
-    */        
+    /* Setting accelerometer fullrange (and sensitivity) */
     mpu.setFullScaleAccelRange( 0x00 ); 
 
     /* Configuring digital low pass filter */
@@ -285,6 +268,26 @@ clear_rtc_storage()
 void
 send_data()
 {
-    xQueueSend( *sending_queue, "S", portMAX_DELAY );
-    return;
+    uint16_t queue_buffer;
+    uint16_t i;
+
+    /* Send start message */
+    queue_buffer    = CODE_ATOM_STARTTRANSFER;
+    xQueueSend      ( *sending_queue,   &queue_buffer, portMAX_DELAY );
+    xQueueReceive   ( *reception_queue, &queue_buffer, portMAX_DELAY );
+
+    /* Send data size message */
+    queue_buffer    = RTC_MPU_DATA_SIZE;
+    xQueueSend      ( *sending_queue,   &queue_buffer, portMAX_DELAY );
+    xQueueReceive   ( *reception_queue, &queue_buffer, portMAX_DELAY );
+
+    /* Send data */
+    #pragma GCC diagnostic ignored "-Waggressive-loop-optimizations"
+    for( i = 0; i < RTC_MPU_DATA_SIZE; i++ )
+    {
+        queue_buffer    = rtc_mpu_data_array[ i ];
+        xQueueSend      ( *sending_queue,   &queue_buffer, portMAX_DELAY );
+        xQueueReceive   ( *reception_queue, &queue_buffer, portMAX_DELAY );
+    }
+    #pragma GCC diagnostic pop
 }

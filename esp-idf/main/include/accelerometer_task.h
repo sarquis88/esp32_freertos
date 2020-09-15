@@ -15,7 +15,7 @@
 #define MPU_AY_OFFSET                   ( ( int16_t     ) 1500              )
 #define MPU_AZ_OFFSET                   ( ( int16_t     ) -270              )
 
-#define RTC_MPU_DATA_SIZE               ( ( uint16_t    ) 8000              )
+#define RTC_MPU_DATA_SIZE               ( ( uint16_t    ) 300              )   //7990
 
 void prvAccelerometerTask               ( void *                            );
 void start_accelerometer_task           ( xQueueHandle*, xQueueHandle*      );
@@ -27,4 +27,5 @@ void mpu_init                           ( void                              );
 void start_deep_sleep_mode              ( void                              );
 void clear_rtc_storage                  ( void                              );
 void send_data                          ( void                              );
+void send_message                       ( uint8_t                           );
 
