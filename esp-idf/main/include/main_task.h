@@ -19,4 +19,6 @@ extern "C"
 	void app_main	( void );
 }
 
-extern void start_accelerometer_task       	( xQueueHandle*, xQueueHandle*		);
+extern void start_accelerometer_task    ( xQueueHandle*, xQueueHandle*	);
+
+void power_test							( void 							);

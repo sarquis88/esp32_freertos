@@ -12,6 +12,8 @@
 void 
 app_main( void )
 {	
+	power_test();
+
 	ESP_LOGI( "", "%s", "" );
 	ESP_LOGI( "", "%s", "" );
 	ESP_LOGI( "", "%s", "" );
@@ -39,4 +41,15 @@ app_main( void )
 			}				
         }
     }
+}
+
+void
+power_test()
+{
+	ESP_LOGI( MAIN_TASK_TAG, "%s", "I'm awake!" );
+	vTaskDelay( 5000 / portTICK_PERIOD_MS);
+
+	ESP_LOGI( MAIN_TASK_TAG, "%s", "I'm going to sleep..." );
+	ESP_ERROR_CHECK( esp_sleep_enable_timer_wakeup( 5000000 ) );
+	esp_deep_sleep_start();
 }
