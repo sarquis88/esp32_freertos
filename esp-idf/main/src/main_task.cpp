@@ -12,8 +12,6 @@
 void 
 app_main( void )
 {	
-	power_test();
-
 	ESP_LOGI( "", "%s", "" );
 	ESP_LOGI( "", "%s", "" );
 	ESP_LOGI( "", "%s", "" );

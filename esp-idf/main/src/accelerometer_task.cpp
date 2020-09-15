@@ -20,6 +20,7 @@ static xQueueHandle* sending_queue;
 /* RTC variables declarations */
 RTC_DATA_ATTR uint8_t rtc_mpu_data_array[ 1 ];
 RTC_DATA_ATTR uint16_t rtc_mpu_data_index = 0;
+RTC_DATA_ATTR bool first_boot = true;
 
 /* Precompilation definitions */
 #define ACCELEROMETER_TASK_VERBOSITY_LEVEL      ( 3 )
@@ -44,10 +45,14 @@ start_accelerometer_task( xQueueHandle* reception, xQueueHandle* sending )
 
     /* MPU init */
     mpu = MPU6050();
-    mpu_init();
-    #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-    ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "MPU initialized" );
-    #endif
+    if( first_boot )
+    {
+        first_boot = false;
+        mpu_init();
+        #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "MPU initialized" );
+        #endif
+    }
 
     /* Checking FIFO count */
     if( mpu.getFIFOCount() < MPU_FIFO_SIZE )
