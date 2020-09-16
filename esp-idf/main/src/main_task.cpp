@@ -1,9 +1,5 @@
 #include "../include/main_task.h"
 
-/* Static variables declaration */
-static xQueueHandle main_reception_queue;
-static xQueueHandle main_sending_queue;
-
 /* Precompilation definitions */
 #define MAIN_TASK_VERBOSITY_LEVEL      ( 1 )
 
@@ -19,54 +15,27 @@ app_main( void )
 	ESP_LOGI( MAIN_TASK_TAG, "%s", "" );
 	#endif
 
-	/* Variables initialization */
-	main_reception_queue 	= xQueueCreate( 6, sizeof( uint16_t ) );
-	main_sending_queue 		= xQueueCreate( 6, sizeof( uint16_t ) );
+	/* Variables declaration */
+	static xQueueHandle transfer_task_queue;
+	static xQueueHandle accelerometer_task_queue;
 
-	/* Starts accelerometer task */
-	start_accelerometer_task( &main_sending_queue, &main_reception_queue );
+	/* Queue initialization */
+	transfer_task_queue 		= xQueueCreate( QUEUE_LENGTH, QUEUE_ITEM_SIZE );
+	accelerometer_task_queue 	= xQueueCreate( QUEUE_LENGTH, QUEUE_ITEM_SIZE );
+	#if MAIN_TASK_VERBOSITY_LEVEL > 0
+	ESP_LOGI( MAIN_TASK_TAG, "%s", "Task queues created" );
+	#endif
 
-	/* Starts main task */
-	prvMainTask( NULL );
+	/* Starts tasks */
+	start_accelerometer_task( &accelerometer_task_queue, &transfer_task_queue );
+	start_transfer_task		( &transfer_task_queue, &accelerometer_task_queue );
+	#if MAIN_TASK_VERBOSITY_LEVEL > 0
+	ESP_LOGI( MAIN_TASK_TAG, "%s", "Tasks created" );
+	#endif
+
+	while( true )
+	{
+		vTaskDelay( 1000 / portTICK_PERIOD_MS );
+	}
 	
-}
-
-void 
-prvMainTask( void* pvParameters )
-{
-	uint8_t queue_buffer;
-
-	for(;;) 
-	{	
-		/* Start receiving any message from queue */
-        xQueueReceive( main_reception_queue, &queue_buffer, portMAX_DELAY );
-
-		if( queue_buffer == CODE_ATOM_STARTTRANSFER )
-		{
-			uint16_t data_size, i;
-
-			/* Send ACK message */
-			queue_buffer = CODE_ACK;
-			xQueueSend( main_sending_queue, &queue_buffer, portMAX_DELAY );
-
-			/* Receive data size */
-			xQueueReceive( main_reception_queue, &data_size, portMAX_DELAY );
-			xQueueSend( main_sending_queue, &queue_buffer, portMAX_DELAY );
-			#if MAIN_TASK_VERBOSITY_LEVEL > 0
-			ESP_LOGI( MAIN_TASK_TAG, "Receiving data. Size %d", data_size );
-			#endif
-
-			/* Receive data */
-			for( i = 0; i < data_size; i++ )
-			{
-				xQueueReceive( main_reception_queue, &queue_buffer, portMAX_DELAY );
-				#if MAIN_TASK_VERBOSITY_LEVEL > 0
-				ESP_LOGI( MAIN_TASK_TAG, "[%d] %d", i, queue_buffer );
-				#endif
-
-				queue_buffer = CODE_ACK;
-				xQueueSend( main_sending_queue, &queue_buffer, portMAX_DELAY );	
-			}
-		}			
-    }
 }

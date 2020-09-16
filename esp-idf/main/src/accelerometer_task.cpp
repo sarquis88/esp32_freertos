@@ -15,8 +15,8 @@
 /* Static variables declarations */
 static MPU6050 mpu;
 static I2Cdev i2cdev;
-static xQueueHandle* reception_queue;
-static xQueueHandle* sending_queue;
+static xQueueHandle* accelerometer_task_queue;
+static xQueueHandle* transfer_task_queue;
 
 /* RTC variables declarations */
 RTC_DATA_ATTR uint8_t rtc_mpu_data_array[ 1 ];
@@ -34,8 +34,8 @@ void
 start_accelerometer_task( xQueueHandle* reception, xQueueHandle* sending )
 {    
     /* Asign passed queue to local one */
-    reception_queue = reception;
-    sending_queue = sending;
+    accelerometer_task_queue = reception;
+    transfer_task_queue = sending;
 
     /* I2C init */
     i2cdev = I2Cdev();
@@ -98,13 +98,13 @@ prvAccelerometerTask( void *pvParameters )
             {
                 /* Send data through WiFi */
                 #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-                ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "RTC storage is full. Sending data through WiFi" );
+                ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "RAM full, sending data to Transfer task" );
                 #endif
-                send_data();
+                send_data_and_wait();
 
                 /* Clearing RTC storage for using it again */ 
                 #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-                ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Clearing RTC storage" );
+                ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Clearing RAM" );
                 #endif
                 clear_rtc_storage();
             }
@@ -266,28 +266,34 @@ clear_rtc_storage()
 }
 
 void
-send_data()
+send_data_and_wait()
 {
     uint16_t queue_buffer;
     uint16_t i;
 
     /* Send start message */
-    queue_buffer    = CODE_ATOM_STARTTRANSFER;
-    xQueueSend      ( *sending_queue,   &queue_buffer, portMAX_DELAY );
-    xQueueReceive   ( *reception_queue, &queue_buffer, portMAX_DELAY );
+    queue_buffer    = CODE_STARTTRANSFER;
+    xQueueSend      ( *transfer_task_queue,   &queue_buffer, portMAX_DELAY );
+    xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 
     /* Send data size message */
     queue_buffer    = RTC_MPU_DATA_SIZE;
-    xQueueSend      ( *sending_queue,   &queue_buffer, portMAX_DELAY );
-    xQueueReceive   ( *reception_queue, &queue_buffer, portMAX_DELAY );
+    xQueueSend      ( *transfer_task_queue,   &queue_buffer, portMAX_DELAY );
+    xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 
     /* Send data */
     #pragma GCC diagnostic ignored "-Waggressive-loop-optimizations"
     for( i = 0; i < RTC_MPU_DATA_SIZE; i++ )
     {
         queue_buffer    = rtc_mpu_data_array[ i ];
-        xQueueSend      ( *sending_queue,   &queue_buffer, portMAX_DELAY );
-        xQueueReceive   ( *reception_queue, &queue_buffer, portMAX_DELAY );
+        xQueueSend      ( *transfer_task_queue,   &queue_buffer, portMAX_DELAY );
+        xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
     }
     #pragma GCC diagnostic pop
+
+    /* Wait until wifi-transfer is done */
+    do
+    {
+        xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
+    } while( queue_buffer != CODE_ENDTRANSFER );
 }
