@@ -77,7 +77,7 @@ prvTransferTask( void *pvParameters )
 			#endif
 
 			/* Wifi configuration */
-			wifi_config( string( "esp32" ), string( "computacion" ) );
+			wifi_config( string( "AbortoLegalYa" ), string( "mirifea123" ) );
 			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
 			ESP_LOGI( TRANSFER_TASK_TAG, "%s", "WiFi has been configured" );
 			#endif
@@ -114,9 +114,13 @@ event_handler( void *ctx, system_event_t *event )
 		socket_config();
 
 		/* Send data through WiFi */
+		#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
+		ESP_LOGI( TRANSFER_TASK_TAG, "Sending %d values", data_size );
+		#endif
 		for( i = 0; i < data_size; i++ )
 		{
-			send_message( data_buffer[ i ] );
+			//send_message( data_buffer[ i ] );
+			ESP_LOGI( TRANSFER_TASK_TAG, "[%d] %d", i, data_buffer[ i ] );
 		}
 		#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
 		ESP_LOGI( TRANSFER_TASK_TAG, "%s", "Data has been sended through WiFi" );

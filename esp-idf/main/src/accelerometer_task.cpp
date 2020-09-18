@@ -37,6 +37,20 @@ start_accelerometer_task( xQueueHandle* reception, xQueueHandle* sending )
     accelerometer_task_queue = reception;
     transfer_task_queue = sending;
 
+    /* Task creation */
+	xTaskCreate( 	prvAccelerometerTask, "accelerometer", 
+					ACCELEROMETER_TASK_STACK_SIZE, NULL, 
+					ACCELEROMETER_TASK_PRIORITY, NULL );  
+}
+
+void 
+prvAccelerometerTask( void *pvParameters )
+{  
+    /* Log tag initialization */
+    #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0 
+    ESP_LOGI( ACCELEROMETER_TASK_TAG, "Task initialized" );    
+    #endif
+
     /* I2C init */
     i2cdev = I2Cdev();
     ESP_ERROR_CHECK( i2c_init() );
@@ -62,18 +76,6 @@ start_accelerometer_task( xQueueHandle* reception, xQueueHandle* sending )
         start_deep_sleep_mode();
     }
 
-    /* Task creation */
-	xTaskCreate( 	prvAccelerometerTask, "accelerometer", 
-					ACCELEROMETER_TASK_STACK_SIZE, NULL, 
-					ACCELEROMETER_TASK_PRIORITY, NULL );  
-    #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0 
-    ESP_LOGI( ACCELEROMETER_TASK_TAG, "Task initialized" );    
-    #endif
-}
-
-void 
-prvAccelerometerTask( void *pvParameters )
-{  
     for(;;) 
 	{
         /* Variables declaration */

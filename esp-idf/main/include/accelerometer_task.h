@@ -15,7 +15,7 @@
 #define MPU_AY_OFFSET                   ( ( int16_t     ) 1500              )
 #define MPU_AZ_OFFSET                   ( ( int16_t     ) -270              )
 
-#define RTC_MPU_DATA_SIZE               ( ( uint16_t    ) 150              )   //7990
+#define RTC_MPU_DATA_SIZE               ( ( uint16_t    ) 100               )   //7990
 
 void prvAccelerometerTask               ( void *                            );
 void start_accelerometer_task           ( xQueueHandle*, xQueueHandle*      );
