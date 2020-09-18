@@ -3,9 +3,7 @@
 /* Static variables declaration */
 static xQueueHandle* transfer_task_queue;
 static xQueueHandle* accelerometer_task_queue;
-static uint16_t data_size;
-static uint8_t *data_buffer;
-static bool connected;
+static bool connected, ip_available;
 
 /* Precompilation definitions */
 #define TRANSFER_TASK_VERBOSITY_LEVEL      ( 1 )
@@ -33,6 +31,7 @@ prvTransferTask( void *pvParameters )
 	uint16_t queue_buffer;
 
 	connected = false;
+	ip_available = false;
 	
 	for(;;) 
 	{	
@@ -41,7 +40,7 @@ prvTransferTask( void *pvParameters )
 
 		if( queue_buffer == CODE_STARTTRANSFER )
 		{
-			uint16_t i;
+			uint16_t i, data_size;
 			wifi_ap_record_t ap_info;
 
 			/* Send ACK message */
@@ -56,7 +55,7 @@ prvTransferTask( void *pvParameters )
 			#endif
 
 			/* Prepare data buffer */
-			data_buffer = ( uint8_t* ) malloc( sizeof ( uint8_t ) * data_size );
+			uint8_t data_buffer[ data_size ];
 
 			/* Receive data */
 			for( i = 0; i < data_size; i++ )
@@ -91,11 +90,36 @@ prvTransferTask( void *pvParameters )
 				}
 				vTaskDelay( TRANSFER_TASK_DELAY / portTICK_PERIOD_MS );
 			} 
-			
+
+			/* Waiting for WiFi connection stablished */
+			while( !ip_available )
+			{
+				vTaskDelay( TRANSFER_TASK_DELAY_1S / portTICK_PERIOD_MS );
+			}
+
+			/* Send data through WiFi */
+			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
+			ESP_LOGI( TRANSFER_TASK_TAG, "Sending %d values", data_size );
+			#endif
+			for( i = 0; i < data_size; i++ )
+			{
+				//send_message( data_buffer[ i ] );
+				ESP_LOGI( TRANSFER_TASK_TAG, "[%d] %d", i, data_buffer[ i ] );
+			}
+			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
+			ESP_LOGI( TRANSFER_TASK_TAG, "%s", "Data has been sended through WiFi" );
+			#endif
+
+			/* Send end message */
+			queue_buffer = CODE_ENDTRANSFER;
+			xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 		}			
     }
 
-	free( data_buffer );
+	/* Exit routine. Task should not reach here */
+    #if TRANSFER_TASK_VERBOSITY_LEVEL > 0
+    ESP_LOGI( TRANSFER_TASK_TAG, "%s", "Task ended" );
+    #endif
 	vTaskDelete( NULL );
 }
 
@@ -104,45 +128,24 @@ event_handler( void *ctx, system_event_t *event )
 {
 	if( event->event_id == SYSTEM_EVENT_STA_GOT_IP ) 
 	{
-		uint16_t queue_buffer, i;
-
+		ip_available = true;
 		#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
 		ESP_LOGI( TRANSFER_TASK_TAG, "IP address: " IPSTR, IP2STR( &event->event_info.got_ip.ip_info.ip ) );
 		#endif
-
-		/* Socket config */
-		socket_config();
-
-		/* Send data through WiFi */
-		#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
-		ESP_LOGI( TRANSFER_TASK_TAG, "Sending %d values", data_size );
-		#endif
-		for( i = 0; i < data_size; i++ )
-		{
-			//send_message( data_buffer[ i ] );
-			ESP_LOGI( TRANSFER_TASK_TAG, "[%d] %d", i, data_buffer[ i ] );
-		}
-		#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
-		ESP_LOGI( TRANSFER_TASK_TAG, "%s", "Data has been sended through WiFi" );
-		#endif
-
-		/* Send end message */
-		queue_buffer = CODE_ENDTRANSFER;
-		xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 	}
 	else if( event->event_id == SYSTEM_EVENT_STA_CONNECTED )
 	{
+		connected = true;
 		#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
 		ESP_LOGI( TRANSFER_TASK_TAG, "Connected to %s", (const char *)&event->event_info.connected.ssid );
 		#endif
-		connected = true;
 	}
 	else if( event->event_id == SYSTEM_EVENT_STA_DISCONNECTED )
 	{
+		connected = false;
 		#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
 		ESP_LOGI( TRANSFER_TASK_TAG, "Disconnected" );
 		#endif
-		connected = false;
 	}
 	
 	return ESP_OK;
@@ -186,18 +189,6 @@ void
 socket_config()
 {
 	struct hostent *dest;
-
-	// dest = gethostbyname( destination_ip );
-	// sockfd = socket( AF_INET, SOCK_DGRAM, 0 );
-	// dest_addr.sin_family = AF_INET;
-	// dest_addr.sin_port = htons( destination_port );
-	// dest_addr.sin_addr = *( (struct in_addr *)dest->h_addr );
-	// memset( &(dest_addr.sin_zero), '\0', 8 );	
-
-	// ESP_LOGI( TRANSFER_TASK_TAG, "Socket configured" );
-
-	// sockfd = socket( AF_INET, SOCK_STREAM, 0);
-	// memset( (char *) &serv_addr, 0, sizeof(serv_addr) );
 
 	dest = gethostbyname( destination_ip );
 	sockfd = socket( AF_INET, SOCK_STREAM, 0 );

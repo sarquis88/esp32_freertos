@@ -67,12 +67,10 @@ prvAccelerometerTask( void *pvParameters )
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "MPU initialized" );
         #endif
-    }
 
-    /* Checking FIFO count */
-    if( mpu.getFIFOCount() < MPU_FIFO_SIZE )
-    {
+        #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Deep-sleep mode on" );
+        #endif
         start_deep_sleep_mode();
     }
 
