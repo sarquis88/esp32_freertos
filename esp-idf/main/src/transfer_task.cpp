@@ -28,6 +28,29 @@ prvTransferTask( void *pvParameters )
     ESP_LOGI( TRANSFER_TASK_TAG, "Task initialized" );    
     #endif
 
+	uint8_t test[ 1024 ];
+	test[ 0 ] = 0;
+	test[ 1 ] = 1;
+	wifi_ap_record_t ap_info;
+	wifi_config( string( "AbortoLegalYa" ), string( "mirifea123" ) );
+	while( !connected )
+	{
+		if( esp_wifi_sta_get_ap_info( &ap_info ) != ESP_OK )
+		{
+			ESP_ERROR_CHECK( esp_wifi_connect() );
+		}
+		vTaskDelay( TRANSFER_TASK_DELAY / portTICK_PERIOD_MS );
+	} 
+	while( !ip_available )
+	{
+		vTaskDelay( TRANSFER_TASK_DELAY_1S / portTICK_PERIOD_MS );
+	}
+	while( true )
+	{
+		http_send( test, sizeof( test ) );
+		vTaskDelay( TRANSFER_TASK_DELAY_1S / portTICK_PERIOD_MS );
+	}
+
 	uint16_t queue_buffer;
 
 	connected = false;
@@ -98,14 +121,13 @@ prvTransferTask( void *pvParameters )
 			}
 
 			/* Send data through WiFi */
-			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
-			ESP_LOGI( TRANSFER_TASK_TAG, "Sending %d values", data_size );
-			#endif
-			for( i = 0; i < data_size; i++ )
-			{
-				//send_message( data_buffer[ i ] );
-				ESP_LOGI( TRANSFER_TASK_TAG, "[%d] %d", i, data_buffer[ i ] );
-			}
+			http_send( data_buffer, data_size );
+			// for( i = 0; i < data_size; i++ )
+			// {
+			// 	//send_message( data_buffer[ i ] );
+			// 	ESP_LOGI( TRANSFER_TASK_TAG, "[%d] %d", i, data_buffer[ i ] );
+			// }
+
 			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
 			ESP_LOGI( TRANSFER_TASK_TAG, "%s", "Data has been sended through WiFi" );
 			#endif
@@ -180,6 +202,40 @@ wifi_config( string ssid, string passwd )
 	ESP_ERROR_CHECK( esp_wifi_start() );
 }
 
+void
+http_send( uint8_t* data, uint16_t len )
+{
+	esp_http_client_config_t cfg = 
+	{
+		.url			=	HTTP_URL,
+		.path			=	"/",
+		.method			=	HTTP_METHOD_POST,
+		.buffer_size_tx	=	len,
+		.user_data		= 	( void* ) data
+	};
+
+	esp_http_client_handle_t handle;
+
+	handle = esp_http_client_init( &cfg );
+
+	ESP_ERROR_CHECK( esp_http_client_set_header(handle, "ContentType", "application/binary" ) );
+
+	ESP_ERROR_CHECK( esp_http_client_perform( handle ) );
+
+	ESP_ERROR_CHECK( esp_http_client_cleanup( handle ) );
+
+}
+
+
+
+
+
+
+
+
+
+
+/* 
 struct sockaddr_in dest_addr;
 int sockfd;
 int destination_port = 20000;
@@ -228,3 +284,5 @@ send_message( uint8_t data )
 		#endif
 	}
 }
+
+*/
