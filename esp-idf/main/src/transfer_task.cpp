@@ -1,3 +1,5 @@
+// TODO: partitions_singleapp.csv
+
 #include "../include/transfer_task.h"
 
 /* Static variables declaration */
@@ -7,7 +9,7 @@ static bool connected, ip_available;
 
 /* Precompilation definitions */
 #define TRANSFER_TASK_VERBOSITY_LEVEL      ( 1 )
-	
+
 void
 start_transfer_task( xQueueHandle* reception, xQueueHandle* sending)
 {
@@ -20,36 +22,12 @@ start_transfer_task( xQueueHandle* reception, xQueueHandle* sending)
                     TRANSFER_TASK_PRIORITY, NULL );
 }
 
-
 void 
 prvTransferTask( void *pvParameters )
 {
 	#if TRANSFER_TASK_VERBOSITY_LEVEL > 0 
     ESP_LOGI( TRANSFER_TASK_TAG, "Task initialized" );    
     #endif
-
-	uint8_t test[ 1024 ];
-	test[ 0 ] = 0;
-	test[ 1 ] = 1;
-	wifi_ap_record_t ap_info;
-	wifi_config( string( "AbortoLegalYa" ), string( "mirifea123" ) );
-	while( !connected )
-	{
-		if( esp_wifi_sta_get_ap_info( &ap_info ) != ESP_OK )
-		{
-			ESP_ERROR_CHECK( esp_wifi_connect() );
-		}
-		vTaskDelay( TRANSFER_TASK_DELAY / portTICK_PERIOD_MS );
-	} 
-	while( !ip_available )
-	{
-		vTaskDelay( TRANSFER_TASK_DELAY_1S / portTICK_PERIOD_MS );
-	}
-	while( true )
-	{
-		http_send( test, sizeof( test ) );
-		vTaskDelay( TRANSFER_TASK_DELAY_1S / portTICK_PERIOD_MS );
-	}
 
 	uint16_t queue_buffer;
 
@@ -69,34 +47,6 @@ prvTransferTask( void *pvParameters )
 			/* Send ACK message */
 			queue_buffer = CODE_ACK;
 			xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
-
-			/* Receive data size */
-			xQueueReceive( *transfer_task_queue, &data_size, portMAX_DELAY );
-			xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
-			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
-			ESP_LOGI( TRANSFER_TASK_TAG, "Receiving data. Size %d", data_size );
-			#endif
-
-			/* Prepare data buffer */
-			uint8_t data_buffer[ data_size ];
-
-			/* Receive data */
-			for( i = 0; i < data_size; i++ )
-			{
-				/* Receive one data */
-				xQueueReceive( *transfer_task_queue, &queue_buffer, portMAX_DELAY );
-				#if MAIN_TASK_VERBOSITY_LEVEL > 1
-				ESP_LOGI( TRANSFER_TASK_TAG, "[%d] %d", i, queue_buffer );
-				#endif
-				data_buffer[ i ] = ( uint8_t ) queue_buffer;
-
-				/* Send ACK message */
-				queue_buffer = CODE_ACK;
-				xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );	
-			}
-			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
-			ESP_LOGI( TRANSFER_TASK_TAG, "%s", "Data has been received" );
-			#endif
 
 			/* Wifi configuration */
 			wifi_config( string( "AbortoLegalYa" ), string( "mirifea123" ) );
@@ -120,16 +70,33 @@ prvTransferTask( void *pvParameters )
 				vTaskDelay( TRANSFER_TASK_DELAY_1S / portTICK_PERIOD_MS );
 			}
 
-			/* Send data through WiFi */
-			http_send( data_buffer, data_size );
-			// for( i = 0; i < data_size; i++ )
-			// {
-			// 	//send_message( data_buffer[ i ] );
-			// 	ESP_LOGI( TRANSFER_TASK_TAG, "[%d] %d", i, data_buffer[ i ] );
-			// }
+			/* Send start message */
+			queue_buffer = CODE_STARTTRANSFER;
+			xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 
+			/* Receive data size */
+			xQueueReceive( *transfer_task_queue, &data_size, portMAX_DELAY );
+			xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
+
+			/* Receive data */
+			for( i = 0; i < data_size; i++ )
+			{
+				/* Receive one data */
+				xQueueReceive( *transfer_task_queue, &queue_buffer, portMAX_DELAY );
+				#if MAIN_TASK_VERBOSITY_LEVEL > 1
+				ESP_LOGI( TRANSFER_TASK_TAG, "[%d] %d", i, queue_buffer );
+				#endif
+
+				/* Send one data through WiFi */
+				http_send( HTTP_KEY + to_string( i ), to_string( ( uint8_t ) queue_buffer ) );
+
+				/* Send ACK message */
+				queue_buffer = CODE_ACK;
+				xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );	
+			}
+			
 			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
-			ESP_LOGI( TRANSFER_TASK_TAG, "%s", "Data has been sended through WiFi" );
+			ESP_LOGI( TRANSFER_TASK_TAG, "Data (%d) has been retranssmited from accelerometer to WiFi", data_size );
 			#endif
 
 			/* Send end message */
@@ -203,86 +170,30 @@ wifi_config( string ssid, string passwd )
 }
 
 void
-http_send( uint8_t* data, uint16_t len )
+http_send( string key, string value )
 {
-	esp_http_client_config_t cfg = 
-	{
-		.url			=	HTTP_URL,
-		.path			=	"/",
-		.method			=	HTTP_METHOD_POST,
-		.buffer_size_tx	=	len,
-		.user_data		= 	( void* ) data
-	};
+	int8_t wlen;
+	string post_data;
 
-	esp_http_client_handle_t handle;
+	post_data = "{\"" + key + "\":\"" + value + "\"}";
 
-	handle = esp_http_client_init( &cfg );
+	#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+	esp_http_client_config_t config = {
+        .url = HTTP_URL
+    };
+	#pragma GCC diagnostic pop
 
-	ESP_ERROR_CHECK( esp_http_client_set_header(handle, "ContentType", "application/binary" ) );
+	esp_http_client_handle_t client = esp_http_client_init( &config );
 
-	ESP_ERROR_CHECK( esp_http_client_perform( handle ) );
+	ESP_ERROR_CHECK( esp_http_client_set_method( client, HTTP_METHOD_POST ) );
+    ESP_ERROR_CHECK( esp_http_client_set_header( client, "Content-Type", "application/json" ) );
+    ESP_ERROR_CHECK( esp_http_client_open( client, strlen( post_data.c_str() ) ) );
+    
+	wlen = esp_http_client_write( client, post_data.c_str(), strlen( post_data.c_str() ) );
+	#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
+	if ( wlen < 0 )
+		ESP_LOGE( TRANSFER_TASK_TAG, "Write failed");
+	#endif
 
-	ESP_ERROR_CHECK( esp_http_client_cleanup( handle ) );
-
+    ESP_ERROR_CHECK( esp_http_client_cleanup( client ) );
 }
-
-
-
-
-
-
-
-
-
-
-/* 
-struct sockaddr_in dest_addr;
-int sockfd;
-int destination_port = 20000;
-const char* destination_ip = "192.168.100.3";
-
-void
-socket_config()
-{
-	struct hostent *dest;
-
-	dest = gethostbyname( destination_ip );
-	sockfd = socket( AF_INET, SOCK_STREAM, 0 );
-	memset( (char *) &dest_addr, '0', sizeof(dest_addr) );
-	dest_addr.sin_family = AF_INET;
-	bcopy( (char *)dest->h_addr, (char *)&dest_addr.sin_addr.s_addr, (size_t )dest->h_length );
-	dest_addr.sin_port = htons( (uint16_t) 20000 );
-
-	connect( sockfd, (struct sockaddr *)&dest_addr, sizeof(dest_addr ) );
-}
-
-void
-send_message( uint8_t data )
-{
-	ssize_t n;
-	uint8_t data_buff;
-
-	data_buff = data;
-
-	n = send	(
-				sockfd,
-				&data_buff, 
-				sizeof( data_buff ),
-				0
-				);
-
-	if( n <= 0 )
-	{
-		#if TRANSFER_TASK_VERBOSITY_LEVEL > 1
-		ESP_LOGE( TRANSFER_TASK_TAG, "Error sending: %d", data );
-		#endif
-	}
-	else
-	{
-		#if TRANSFER_TASK_VERBOSITY_LEVEL > 1
-		ESP_LOGI( TRANSFER_TASK_TAG, "Data sended: %d", data );
-		#endif
-	}
-}
-
-*/

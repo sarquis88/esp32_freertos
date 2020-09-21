@@ -1,15 +1,3 @@
-/*
-    TODO
-        - I2C in sleep mode
-        - Auto calibration
-        - Wifi transmission
-*/
-
-/*
-    ESP32 wakes-up each ~45 seconds, storing 170 accelerometer modules (8-bit each one)
-    The maximum storage is 7990 modules, so in ~35 minutes the memory will be full
-*/
-
 #include "../include/accelerometer_task.h"
 
 /* Static variables declarations */
@@ -274,6 +262,9 @@ send_data_and_wait()
     /* Send start message */
     queue_buffer    = CODE_STARTTRANSFER;
     xQueueSend      ( *transfer_task_queue,   &queue_buffer, portMAX_DELAY );
+    xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
+
+    /* Receive start message */
     xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 
     /* Send data size message */

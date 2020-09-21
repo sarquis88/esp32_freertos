@@ -2,10 +2,10 @@
 
 #define ACCELEROMETER_TASK_DELAY_MS		( ( uint16_t ) 1000                 )
 #define ACCELEROMETER_TASK_PRIORITY		( tskIDLE_PRIORITY + 2              )
-#define ACCELEROMETER_TASK_STACK_SIZE	( configMINIMAL_STACK_SIZE + 6000   ) 
+#define ACCELEROMETER_TASK_STACK_SIZE	( configMINIMAL_STACK_SIZE + 8096   ) 
 #define ACCELEROMETER_TASK_TAG          ( ( const char* ) "Accelerometer"   )
 
-#define I2C_MASTER_FREQ_HZ              ( ( uint32_t ) 1000                 )
+#define I2C_MASTER_FREQ_HZ              ( ( uint32_t ) 500000               )
 #define I2C_SLAVE_ADDR                  ( 0x68                              )
 
 #define MPU_AXIS_COUNT                  ( ( uint8_t     ) 3                 )
@@ -15,7 +15,7 @@
 #define MPU_AY_OFFSET                   ( ( int16_t     ) 1500              )
 #define MPU_AZ_OFFSET                   ( ( int16_t     ) -270              )
 
-#define RTC_MPU_DATA_SIZE               ( ( uint16_t    ) 169               )   //7990
+#define RTC_MPU_DATA_SIZE               ( ( uint16_t    ) 1000              )   //7990
 
 void prvAccelerometerTask               ( void *                            );
 void start_accelerometer_task           ( xQueueHandle*, xQueueHandle*      );

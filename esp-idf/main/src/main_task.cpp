@@ -27,7 +27,7 @@ app_main( void )
 	#endif
 
 	/* Starts tasks */
-	//start_accelerometer_task( &accelerometer_task_queue, &transfer_task_queue );
+	start_accelerometer_task( &accelerometer_task_queue, &transfer_task_queue );
 	start_transfer_task		( &transfer_task_queue, &accelerometer_task_queue );
 	#if MAIN_TASK_VERBOSITY_LEVEL > 0
 	ESP_LOGI( MAIN_TASK_TAG, "%s", "Tasks created" );
