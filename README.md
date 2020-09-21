@@ -7,7 +7,7 @@ The proyect hardware consists on one ESP32 board working along with the accelero
 The main goals of the proyect are:
 
  * Sense animals acceleration
- * Store measurements in NVS (Non-Volatile-Storage)
+ * Store measurements in RTC RAM
  * Send data through WiFi when storage is full
  * The priors but paying attention on the power management 
 
