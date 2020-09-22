@@ -1,7 +1,9 @@
 #include "../include/main_task.h"
 
 /* Precompilation definitions */
+#if GLOBAL_VERBOSITY_LEVEL > 0
 #define MAIN_TASK_VERBOSITY_LEVEL      ( 1 )
+#endif
 
 /* ######################################################################### */
 /* ######################################################################### */

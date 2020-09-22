@@ -1,8 +1,9 @@
 import json
-
+from contextlib import suppress
+  
 i = 0
 
-with open('accel_dump.json') as f:
+with open('dump.json') as f:
     data = json.load(f)
 
 try:

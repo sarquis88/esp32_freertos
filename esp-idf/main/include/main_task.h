@@ -24,6 +24,8 @@ using namespace std;
 #define GPIO_PIN_18   					( ( gpio_num_t ) 18 					)
 #define GPIO_PIN_19   					( ( gpio_num_t ) 19 					)
 
+#define GLOBAL_VERBOSITY_LEVEL			( 1										)
+
 #define MAIN_TASK_TAG          			( ( const char* ) "Main"   				)
 
 #define CODE_STARTTRANSFER				( ( uint8_t ) 0							)

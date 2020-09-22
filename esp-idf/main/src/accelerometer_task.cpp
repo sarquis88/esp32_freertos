@@ -12,8 +12,9 @@ RTC_DATA_ATTR uint16_t rtc_mpu_data_index = 0;
 RTC_DATA_ATTR bool first_boot = true;
 
 /* Precompilation definitions */
+#if GLOBAL_VERBOSITY_LEVEL > 0
 #define ACCELEROMETER_TASK_VERBOSITY_LEVEL      ( 1 )
-#define ACCELEROMETER_TASK_SHOW_WATERMARK       ( 0 )
+#endif
 
 /* ######################################################################### */
 /* ######################################################################### */
