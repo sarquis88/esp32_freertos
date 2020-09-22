@@ -41,8 +41,9 @@ prvTransferTask( void *pvParameters )
 
 		if( queue_buffer == CODE_STARTTRANSFER )
 		{
-			uint16_t i, data_size;
 			uint8_t *data_pointer;
+			uint16_t i, data_size;
+			wifi_ap_record_t ap_info;
 
 			/* Send ACK message */
 			queue_buffer = CODE_ACK;

@@ -246,7 +246,7 @@ clear_rtc_storage()
     #pragma GCC diagnostic ignored "-Waggressive-loop-optimizations"
 
     for( i = 0; i < RTC_MPU_DATA_SIZE; i++ )
-        rtc_mpu_data_array[ i ] = 0.f;
+        rtc_mpu_data_array[ i ] = 0;
 
     #pragma GCC diagnostic pop
 
@@ -257,7 +257,6 @@ void
 send_data_and_wait()
 {
     uint32_t queue_buffer;
-    uint16_t i;
 
     /* Send start message */
     queue_buffer    = CODE_STARTTRANSFER;
