@@ -29,7 +29,7 @@ prvTransferTask( void *pvParameters )
     ESP_LOGI( TRANSFER_TASK_TAG, "Task initialized" );    
     #endif
 
-	uint16_t queue_buffer;
+	uint32_t queue_buffer;
 
 	connected = false;
 	ip_available = false;
@@ -42,9 +42,19 @@ prvTransferTask( void *pvParameters )
 		if( queue_buffer == CODE_STARTTRANSFER )
 		{
 			uint16_t i, data_size;
-			wifi_ap_record_t ap_info;
+			uint8_t *data_pointer;
 
 			/* Send ACK message */
+			queue_buffer = CODE_ACK;
+			xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
+
+			/* Receive data size */
+			xQueueReceive( *transfer_task_queue, &data_size, portMAX_DELAY );
+			xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
+
+			/* Receive data pointer */
+			xQueueReceive( *transfer_task_queue, &queue_buffer, portMAX_DELAY );
+			data_pointer = ( uint8_t* ) queue_buffer;
 			queue_buffer = CODE_ACK;
 			xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 
@@ -70,29 +80,10 @@ prvTransferTask( void *pvParameters )
 				vTaskDelay( TRANSFER_TASK_DELAY_1S / portTICK_PERIOD_MS );
 			}
 
-			/* Send start message */
-			queue_buffer = CODE_STARTTRANSFER;
-			xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
-
-			/* Receive data size */
-			xQueueReceive( *transfer_task_queue, &data_size, portMAX_DELAY );
-			xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
-
-			/* Receive data */
+			/* Send data */
 			for( i = 0; i < data_size; i++ )
 			{
-				/* Receive one data */
-				xQueueReceive( *transfer_task_queue, &queue_buffer, portMAX_DELAY );
-				#if MAIN_TASK_VERBOSITY_LEVEL > 1
-				ESP_LOGI( TRANSFER_TASK_TAG, "[%d] %d", i, queue_buffer );
-				#endif
-
-				/* Send one data through WiFi */
-				http_send( HTTP_KEY + to_string( i ), to_string( ( uint8_t ) queue_buffer ) );
-
-				/* Send ACK message */
-				queue_buffer = CODE_ACK;
-				xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );	
+				http_send( HTTP_KEY + to_string( i ), to_string( data_pointer[ i ] ) );	
 			}
 			
 			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0

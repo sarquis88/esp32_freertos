@@ -256,7 +256,7 @@ clear_rtc_storage()
 void
 send_data_and_wait()
 {
-    uint16_t queue_buffer;
+    uint32_t queue_buffer;
     uint16_t i;
 
     /* Send start message */
@@ -264,23 +264,15 @@ send_data_and_wait()
     xQueueSend      ( *transfer_task_queue,   &queue_buffer, portMAX_DELAY );
     xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 
-    /* Receive start message */
-    xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
-
     /* Send data size message */
     queue_buffer    = RTC_MPU_DATA_SIZE;
     xQueueSend      ( *transfer_task_queue,   &queue_buffer, portMAX_DELAY );
     xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 
-    /* Send data */
-    #pragma GCC diagnostic ignored "-Waggressive-loop-optimizations"
-    for( i = 0; i < RTC_MPU_DATA_SIZE; i++ )
-    {
-        queue_buffer    = rtc_mpu_data_array[ i ];
-        xQueueSend      ( *transfer_task_queue,   &queue_buffer, portMAX_DELAY );
-        xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
-    }
-    #pragma GCC diagnostic pop
+    /* Send data pointer */
+    queue_buffer    = ( uint32_t ) rtc_mpu_data_array;
+    xQueueSend      ( *transfer_task_queue,   &queue_buffer, portMAX_DELAY );
+    xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 
     /* Wait until wifi-transfer is done */
     do

@@ -31,7 +31,7 @@ using namespace std;
 #define CODE_ACK						( ( uint8_t ) 2							)
 
 #define QUEUE_LENGTH					( ( UBaseType_t ) 5						)
-#define QUEUE_ITEM_SIZE					( ( UBaseType_t ) sizeof( uint16_t )	)
+#define QUEUE_ITEM_SIZE					( ( UBaseType_t ) sizeof( uint32_t )	)
 
 extern "C"
 {
