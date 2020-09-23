@@ -17,13 +17,45 @@
 
 #define RTC_MPU_DATA_SIZE               ( ( uint16_t    ) 100               )   //7990
 
-void prvAccelerometerTask               ( void *                            );
+/*
+    Function called by the main task
+    It prepares and starts the accelerometer task
+    The task should always be started with this function
+    @param accelerometer and transfer tasks queues, respectively
+*/
 void start_accelerometer_task           ( xQueueHandle*, xQueueHandle*      );
 
+/*
+    Accelerometer task
+    Manages the MPU sensor and the sleep modes
+    When storage is full, it comunicates with the transfer task for transmiting
+    the data
+*/
+void prvAccelerometerTask               ( void *                            );
+
+/*
+    I2C module configuration and initialization
+    @return ESP error type
+*/
 esp_err_t i2c_init                      ( void                              );
 
+/*
+    MPU sensor configuration and initialization
+*/
 void mpu_init                           ( void                              );
 
+/*
+    Send the micro into deep sleep mode
+    It can only be awakened by the pin 2
+*/
 void start_deep_sleep_mode              ( void                              );
+
+/*
+    Zeroes the data array
+*/
 void clear_rtc_storage                  ( void                              );
+
+/*
+    Send messages to the transfer task for start the data transmition
+*/
 void send_data_and_wait                 ( void                              );

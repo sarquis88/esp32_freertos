@@ -37,11 +37,13 @@ using namespace std;
 
 extern "C"
 {
+	/*
+		Main task function, the first one who starts
+		This function is in charge of starting the other tasks and preparing
+		its queues for passing messages
+	*/
 	void app_main	( void );
 }
 
 extern void start_accelerometer_task    ( xQueueHandle*, xQueueHandle*	);
 extern void start_transfer_task    		( xQueueHandle*, xQueueHandle*	);
-
-void prvMainTask						( void*							);
-

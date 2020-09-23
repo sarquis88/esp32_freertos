@@ -38,6 +38,5 @@ app_main( void )
 	while( true )
 	{
 		vTaskDelay( 1000 / portTICK_PERIOD_MS );
-	}
-	
+	}	
 }

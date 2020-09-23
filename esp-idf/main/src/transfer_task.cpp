@@ -19,9 +19,39 @@ start_transfer_task( xQueueHandle* reception, xQueueHandle* sending)
     transfer_task_queue = reception;
     accelerometer_task_queue = sending;
 
+	/* Task creation */
     xTaskCreate( 	prvTransferTask, "transferTask", 
                     TRANSFER_TASK_STACK_SIZE, NULL, 
                     TRANSFER_TASK_PRIORITY, NULL );
+}
+
+void 
+test()
+{
+	/* Wifi configuration */
+	wifi_config( string( "AbortoLegalYa" ), string( "mirifea123" ) );
+	#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
+	ESP_LOGI( TRANSFER_TASK_TAG, "%s", "WiFi has been configured" );
+	#endif
+
+	/* Wifi connection */
+	while( !connected )
+	{
+		ESP_ERROR_CHECK( esp_wifi_connect() );
+		vTaskDelay( TRANSFER_TASK_DELAY / portTICK_PERIOD_MS );
+	} 
+
+	/* Waiting for WiFi connection stablished */
+	while( !ip_available )
+	{
+		vTaskDelay( TRANSFER_TASK_DELAY / portTICK_PERIOD_MS );
+	}
+
+	while( true )
+	{
+		vTaskDelay( TRANSFER_TASK_DELAY / portTICK_PERIOD_MS );
+		http_send_plain( (uint8_t*)"HOLA", 4 );
+	}
 }
 
 void 
@@ -31,6 +61,8 @@ prvTransferTask( void *pvParameters )
 	#if TRANSFER_TASK_VERBOSITY_LEVEL > 0 
     ESP_LOGI( TRANSFER_TASK_TAG, "Task initialized" );    
     #endif
+
+	//test();
 
 	uint32_t queue_buffer;
 
@@ -96,7 +128,6 @@ prvTransferTask( void *pvParameters )
 				}
 				http_send_plain( data_chunk, HTTP_CHUNK_SIZE );
 			}
-			
 			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
 			ESP_LOGI( TRANSFER_TASK_TAG, "Data (%d) has been retranssmited from accelerometer through WiFi", data_size );
 			#endif

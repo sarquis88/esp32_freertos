@@ -16,13 +16,10 @@ RTC_DATA_ATTR bool first_boot = true;
 #define ACCELEROMETER_TASK_VERBOSITY_LEVEL      ( 1 )
 #endif
 
-/* ######################################################################### */
-/* ######################################################################### */
-
 void 
 start_accelerometer_task( xQueueHandle* reception, xQueueHandle* sending )
 {    
-    /* Asign passed queue to local one */
+    /* Asign passed queues to local ones */
     accelerometer_task_queue = reception;
     transfer_task_queue = sending;
 
@@ -102,7 +99,7 @@ prvAccelerometerTask( void *pvParameters )
             uint8_t j, scaled_module;
             float module;
 
-            /* Data request and reception */
+            /* Accelerometer's data request */
             mpu.getFIFOBytes( (uint8_t*) mpu_accel_values, MPU_AXIS_COUNT * 2 );
     
             /* Swap nibbles */
@@ -119,10 +116,10 @@ prvAccelerometerTask( void *pvParameters )
                 module += mpu_accel_values[ j ] * mpu_accel_values[ j ];
             module = sqrt( module );
 
-            /* Scaling module */
+            /* Scaling module (converting it to 8-bit) */
             scaled_module = ( module / 257.00 );
 
-            /* Module store into RTC RAM */
+            /* Storing module into RAM */
             rtc_mpu_data_array[ rtc_mpu_data_index ] = scaled_module;
             #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 2
             ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] %d", rtc_mpu_data_index, rtc_mpu_data_array[ rtc_mpu_data_index ] );
@@ -211,21 +208,6 @@ mpu_init()
     
     /* Starting MPU */
     mpu.setSleepEnabled( false );
-}
-
-void
-mpu_check_reg_values()
-{
-    uint8_t value = 0;
-    uint8_t reg;
-
-    for( reg = 13; reg < 118; reg++ )
-    {
-        if( i2cdev.readByte( I2C_SLAVE_ADDR, reg, &value ) == true )
-            ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] = %d", reg, value );
-        else
-            ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Cannot check registers values" );
-    }
 }
 
 /* ######################################################################### */
