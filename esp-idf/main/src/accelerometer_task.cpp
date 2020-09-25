@@ -82,11 +82,19 @@ prvAccelerometerTask( void *pvParameters )
             /* Checking if RTC storage is full */
             if( rtc_mpu_data_index >= RTC_MPU_DATA_SIZE )
             {
-                /* Send data through WiFi */
+                bool spiffs_full;
+
+                /* Send data to SPIFFS */
                 #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-                ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "RAM full, sending data to Transfer task" );
+                ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "RAM full, sending data to filesystem" );
                 #endif
-                send_data_and_wait();
+                ESP_ERROR_CHECK( write_to_spiffs( rtc_mpu_data_array, rtc_mpu_data_index, &spiffs_full ) );
+
+                /* Checking SPIFFS space */
+                if( spiffs_full )
+                {
+                    send_data_and_wait();
+                }
 
                 /* Clearing RTC storage for using it again */ 
                 #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
@@ -249,19 +257,70 @@ send_data_and_wait()
     xQueueSend      ( *transfer_task_queue,   &queue_buffer, portMAX_DELAY );
     xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 
-    /* Send data size message */
-    queue_buffer    = RTC_MPU_DATA_SIZE;
-    xQueueSend      ( *transfer_task_queue,   &queue_buffer, portMAX_DELAY );
-    xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
-
-    /* Send data pointer */
-    queue_buffer    = ( uint32_t ) rtc_mpu_data_array;
-    xQueueSend      ( *transfer_task_queue,   &queue_buffer, portMAX_DELAY );
-    xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
-
     /* Wait until wifi-transfer is done */
     do
     {
         xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
     } while( queue_buffer != CODE_ENDTRANSFER );
+}
+
+/* ######################################################################### */
+/* ######################################################################### */
+
+esp_err_t
+write_to_spiffs( uint8_t* data, size_t len, bool* spiffs_full )
+{
+	/* Variables declaration */
+	FILE* file;
+	esp_err_t err;
+	uint16_t i;
+	size_t total, used;
+
+	/* Mount partition */
+	esp_vfs_spiffs_conf_t conf = 
+	{
+		.base_path = SPIFFS_BASE_PATH,
+		.partition_label = NULL,
+		.max_files = 5,
+		.format_if_mount_failed = true
+	};
+	err = esp_vfs_spiffs_register( &conf );
+	if( err != ESP_OK )
+		return err;
+
+	/* Space check */
+	err = esp_spiffs_info( conf.partition_label, &total, &used );
+	if( err != ESP_OK )
+		return err;
+	else
+	{
+		if( used >= SPIFFS_BYTES_SIZE )
+		{
+			*spiffs_full = true;
+            return;
+		}
+        else
+        {
+            *spiffs_full = false;
+        }   
+	}
+	
+	/* Open accel data file */
+    file = fopen( SPIFFS_FILE_NAME, "a+" );
+    if (f == NULL) 
+	{
+		#if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
+        ESP_LOGE( MAIN_TASK_TAG, "Failed to open file for writing" );
+		#endif
+        return ESP_FAIL;
+    }
+
+	/* File writing */
+	for( i = 0; i < len ; i++ )
+	{	
+    	fprintf( file, "%du\n", data[ i ] );
+	}
+
+	/* File closing */
+    fclose( file );
 }

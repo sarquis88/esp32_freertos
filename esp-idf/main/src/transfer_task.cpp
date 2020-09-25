@@ -83,16 +83,6 @@ prvTransferTask( void *pvParameters )
 			queue_buffer = CODE_ACK;
 			xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 
-			/* Receive data size */
-			xQueueReceive( *transfer_task_queue, &data_size, portMAX_DELAY );
-			xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
-
-			/* Receive data pointer */
-			xQueueReceive( *transfer_task_queue, &queue_buffer, portMAX_DELAY );
-			data_pointer = ( uint8_t* ) queue_buffer;
-			queue_buffer = CODE_ACK;
-			xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
-
 			/* Wifi configuration */
 			wifi_config( string( "AbortoLegalYa" ), string( "mirifea123" ) );
 			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
@@ -112,11 +102,7 @@ prvTransferTask( void *pvParameters )
 				vTaskDelay( TRANSFER_TASK_DELAY / portTICK_PERIOD_MS );
 			}
 
-			// /* Send data as json (one by one) */
-			// for( i = 0; i < data_size; i++ )
-			// {
-			// 	http_send_json( HTTP_KEY + to_string( i ), to_string( data_pointer[ i ] ) );	
-			// }
+			// open spiffs file and do magics
 
 			/* Send data as blob (chunk by chunk) */
 			chunk_cantity = data_size / HTTP_CHUNK_SIZE;
