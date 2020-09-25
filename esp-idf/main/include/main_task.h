@@ -10,6 +10,7 @@
 #include <esp_http_client.h>
 
 #include <nvs_flash.h>
+#include "esp_spiffs.h"
 #include <tcpip_adapter.h>
 
 #include <iostream>
