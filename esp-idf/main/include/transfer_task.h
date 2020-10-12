@@ -5,9 +5,11 @@
 #define TRANSFER_TASK_STACK_SIZE	( configMINIMAL_STACK_SIZE + 8096               )
 #define TRANSFER_TASK_TAG           ( ( const char * ) "Transfer"                   )
 
-#define HTTP_URL                    ( ( const char * ) "http://192.168.100.3:8080"  )
+#define HTTP_URL                    ( ( const char * ) "http://192.168.100.6:8080"  )
 #define HTTP_KEY                    ( ( const char * ) "Accel"                      )
 #define HTTP_CHUNK_SIZE             ( 100                                           ) // has to be multiple of RTC_MPU_DATA_SIZE
+
+#define DATA_STRING_SIZE            ( ( size_t ) 3                                  )
 
 /*
     Function called by the main task.
@@ -48,3 +50,5 @@ void http_send_json                 ( string, string                            
     @param data pointer and length, respectively
 */
 void http_send_plain                ( uint8_t*, uint16_t                            );
+
+esp_err_t read_from_spiffs          ( uint8_t*, size_t                              );

@@ -14,6 +14,7 @@
 #include <tcpip_adapter.h>
 
 #include <iostream>
+#include <fstream>
 #include <cstring>
 #include <netdb.h>
 
@@ -35,6 +36,9 @@ using namespace std;
 
 #define QUEUE_LENGTH					( ( UBaseType_t ) 5						)
 #define QUEUE_ITEM_SIZE					( ( UBaseType_t ) sizeof( uint32_t )	)
+
+#define SPIFFS_BASE_PATH            	( ( const char * ) "/spiffs"            )
+#define SPIFFS_FILE_NAME            	( ( const char * ) "/spiffs/accel.txt"	)
 
 extern "C"
 {

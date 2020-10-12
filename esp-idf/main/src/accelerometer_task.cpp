@@ -9,6 +9,7 @@ static xQueueHandle* transfer_task_queue;
 /* RTC variables declarations */
 RTC_DATA_ATTR uint8_t rtc_mpu_data_array[ 1 ];
 RTC_DATA_ATTR uint16_t rtc_mpu_data_index = 0;
+RTC_DATA_ATTR uint32_t spiffs_data_index = 0;
 RTC_DATA_ATTR bool first_boot = true;
 
 /* Precompilation definitions */
@@ -82,25 +83,22 @@ prvAccelerometerTask( void *pvParameters )
             /* Checking if RTC storage is full */
             if( rtc_mpu_data_index >= RTC_MPU_DATA_SIZE )
             {
-                bool spiffs_full;
-
-                /* Send data to SPIFFS */
+                /* Writing data to SPIFFS */
+                ESP_ERROR_CHECK( write_to_spiffs( rtc_mpu_data_array, rtc_mpu_data_index ) );
+                spiffs_data_index += rtc_mpu_data_index;
                 #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-                ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "RAM full, sending data to filesystem" );
+                ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Writing data to SPIFFS" );
                 #endif
-                ESP_ERROR_CHECK( write_to_spiffs( rtc_mpu_data_array, rtc_mpu_data_index, &spiffs_full ) );
 
                 /* Checking SPIFFS space */
-                if( spiffs_full )
+                if( spiffs_data_index >= SPIFFS_BYTES_SIZE )
                 {
                     send_data_and_wait();
+                    remove( SPIFFS_FILE_NAME );
+                    spiffs_data_index = 0;
                 }
 
-                /* Clearing RTC storage for using it again */ 
-                #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-                ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Clearing RAM" );
-                #endif
-                clear_rtc_storage();
+                rtc_mpu_data_index = 0;
             }
 
             /* Variables declaration */
@@ -137,7 +135,8 @@ prvAccelerometerTask( void *pvParameters )
 
         /* Log data */ 
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-        ESP_LOGI( ACCELEROMETER_TASK_TAG, "Data stored in RTC from index %d to %d", rtc_index_first, rtc_mpu_data_index - 1 );
+        //ESP_LOGI( ACCELEROMETER_TASK_TAG, "Data stored in RTC from index %d to %d", rtc_index_first, rtc_mpu_data_index - 1 );
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "Writing data to RAM" );
         #endif
 
         /* Sleeping until FIFO overflows */
@@ -233,27 +232,17 @@ start_deep_sleep_mode()
 /* ######################################################################### */
 
 void
-clear_rtc_storage()
-{
-    uint16_t i;
-
-    #pragma GCC diagnostic ignored "-Waggressive-loop-optimizations"
-
-    for( i = 0; i < RTC_MPU_DATA_SIZE; i++ )
-        rtc_mpu_data_array[ i ] = 0;
-
-    #pragma GCC diagnostic pop
-
-    rtc_mpu_data_index = 0;
-}
-
-void
 send_data_and_wait()
 {
     uint32_t queue_buffer;
 
     /* Send start message */
     queue_buffer    = CODE_STARTTRANSFER;
+    xQueueSend      ( *transfer_task_queue,   &queue_buffer, portMAX_DELAY );
+    xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
+
+    /* Send data size */
+    queue_buffer    = SPIFFS_BYTES_SIZE;
     xQueueSend      ( *transfer_task_queue,   &queue_buffer, portMAX_DELAY );
     xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 
@@ -268,15 +257,13 @@ send_data_and_wait()
 /* ######################################################################### */
 
 esp_err_t
-write_to_spiffs( uint8_t* data, size_t len, bool* spiffs_full )
+write_to_spiffs( uint8_t* data, size_t len )
 {
 	/* Variables declaration */
 	FILE* file;
-	esp_err_t err;
-	uint16_t i;
-	size_t total, used;
+    esp_err_t err;
 
-	/* Mount partition */
+    /* Mount SPIFFS partition */
 	esp_vfs_spiffs_conf_t conf = 
 	{
 		.base_path = SPIFFS_BASE_PATH,
@@ -285,29 +272,14 @@ write_to_spiffs( uint8_t* data, size_t len, bool* spiffs_full )
 		.format_if_mount_failed = true
 	};
 	err = esp_vfs_spiffs_register( &conf );
-	if( err != ESP_OK )
+	if( err != ESP_OK && err != ESP_ERR_INVALID_STATE )
+    {
 		return err;
-
-	/* Space check */
-	err = esp_spiffs_info( conf.partition_label, &total, &used );
-	if( err != ESP_OK )
-		return err;
-	else
-	{
-		if( used >= SPIFFS_BYTES_SIZE )
-		{
-			*spiffs_full = true;
-            return;
-		}
-        else
-        {
-            *spiffs_full = false;
-        }   
-	}
+    }
 	
 	/* Open accel data file */
     file = fopen( SPIFFS_FILE_NAME, "a+" );
-    if (f == NULL) 
+    if (file == NULL) 
 	{
 		#if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
         ESP_LOGE( MAIN_TASK_TAG, "Failed to open file for writing" );
@@ -316,11 +288,10 @@ write_to_spiffs( uint8_t* data, size_t len, bool* spiffs_full )
     }
 
 	/* File writing */
-	for( i = 0; i < len ; i++ )
-	{	
-    	fprintf( file, "%du\n", data[ i ] );
-	}
+    if( fwrite( (void*) data, sizeof( uint8_t ), len, file ) != len )
+        return ESP_FAIL;
 
 	/* File closing */
     fclose( file );
+    return ESP_OK;
 }

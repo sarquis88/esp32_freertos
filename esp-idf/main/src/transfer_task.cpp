@@ -76,8 +76,17 @@ prvTransferTask( void *pvParameters )
 
 		if( queue_buffer == CODE_STARTTRANSFER )
 		{
-			uint8_t data_chunk[ HTTP_CHUNK_SIZE ], *data_pointer, chunk_cantity;
+			uint8_t data_chunk[ HTTP_CHUNK_SIZE ], chunk_cantity;
 			uint16_t i, j, data_size;
+
+			/* Send ACK message */
+			queue_buffer = CODE_ACK;
+			xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
+
+			/* Receive data size */
+			xQueueReceive( *transfer_task_queue, &queue_buffer, portMAX_DELAY );
+			data_size = queue_buffer;
+			uint8_t data_pointer[ data_size ];
 
 			/* Send ACK message */
 			queue_buffer = CODE_ACK;
@@ -89,6 +98,7 @@ prvTransferTask( void *pvParameters )
 			ESP_LOGI( TRANSFER_TASK_TAG, "%s", "WiFi has been configured" );
 			#endif
 
+			// TODO FIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIX
 			/* Wifi connection */
 			while( !connected )
 			{
@@ -102,7 +112,11 @@ prvTransferTask( void *pvParameters )
 				vTaskDelay( TRANSFER_TASK_DELAY / portTICK_PERIOD_MS );
 			}
 
-			// open spiffs file and do magics
+			/* Open data file */
+			read_from_spiffs( data_pointer, data_size );
+			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
+			ESP_LOGI( TRANSFER_TASK_TAG, "%s", "SPIFFS file opened" );
+			#endif
 
 			/* Send data as blob (chunk by chunk) */
 			chunk_cantity = data_size / HTTP_CHUNK_SIZE;
@@ -241,4 +255,42 @@ http_send_plain( uint8_t* data, uint16_t len )
 	#endif
 
     ESP_ERROR_CHECK( esp_http_client_cleanup( client ) );
+}
+
+esp_err_t
+read_from_spiffs( uint8_t *data, size_t len )
+{
+	/* Variables declaration */
+	esp_err_t err;
+	FILE* file;
+
+	/* Mount SPIFFS partition */
+	esp_vfs_spiffs_conf_t conf = 
+	{
+		.base_path = SPIFFS_BASE_PATH,
+		.partition_label = NULL,
+		.max_files = 5,
+		.format_if_mount_failed = true
+	};
+	err = esp_vfs_spiffs_register( &conf );
+	if( err != ESP_OK && err != ESP_ERR_INVALID_STATE )
+    {
+		return err;
+    }
+
+	/* Open accel data file */
+    file = fopen( SPIFFS_FILE_NAME, "r" );
+    if (file == NULL) 
+	{
+		#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
+        ESP_LOGE( TRANSFER_TASK_TAG, "Failed to open file for reading" );
+		#endif
+        return ESP_FAIL;
+    }
+
+	/* Read data from file */
+	fread( (void*) data, sizeof( uint8_t ), len, file );
+
+	fclose( file );
+	return ESP_OK;
 }

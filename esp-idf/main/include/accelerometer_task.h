@@ -15,11 +15,9 @@
 #define MPU_AY_OFFSET                   ( ( int16_t ) 1465                  )
 #define MPU_AZ_OFFSET                   ( ( int16_t ) -300                  )
 
-#define RTC_MPU_DATA_SIZE               ( ( uint16_t    ) 100               )   //7990
+#define RTC_MPU_DATA_SIZE               ( ( uint16_t ) 100               )   //7990
 
-#define SPIFFS_BASE_PATH            ( ( const char * ) "/spiffs"                    )
-#define SPIFFS_FILE_NAME            ( ( const char * ) "/spiffs/accel.txt"          )
-#define SPIFFS_BYTES_SIZE           ( ( size_t ) 1500000                            )
+#define SPIFFS_BYTES_SIZE               ( ( size_t ) 100                    ) //1500000
 
 /*
     Function called by the main task
@@ -55,13 +53,8 @@ void mpu_init                           ( void                              );
 void start_deep_sleep_mode              ( void                              );
 
 /*
-    Zeroes the data array
-*/
-void clear_rtc_storage                  ( void                              );
-
-/*
     Send messages to the transfer task for start the data transmition
 */
 void send_data_and_wait                 ( void                              );
 
-esp_err_t write_to_spiffs               ( uint8_t*, size_t, bool            );
+esp_err_t write_to_spiffs               ( uint8_t*, size_t                  );
