@@ -1,5 +1,3 @@
-// TODO: partitions_singleapp.csv
-
 #include "../include/transfer_task.h"
 
 /* Static variables declaration */
@@ -169,35 +167,6 @@ wifi_config( string ssid, string passwd )
 	strcpy( (char*)sta_config.sta.password, passwd.c_str() );
 	ESP_ERROR_CHECK( esp_wifi_set_config( WIFI_IF_STA, &sta_config ) );
 	ESP_ERROR_CHECK( esp_wifi_start() );
-}
-
-void
-http_send_json( string key, string value )
-{
-	int8_t wlen;
-	string post_data;
-
-	post_data = "{\"" + key + "\":\"" + value + "\"}";
-
-	#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-	esp_http_client_config_t config = {
-        .url = HTTP_URL
-    };
-	#pragma GCC diagnostic pop
-
-	esp_http_client_handle_t client = esp_http_client_init( &config );
-
-	ESP_ERROR_CHECK( esp_http_client_set_method( client, HTTP_METHOD_POST ) );
-    ESP_ERROR_CHECK( esp_http_client_set_header( client, "Content-Type", "application/json" ) );
-    ESP_ERROR_CHECK( esp_http_client_open( client, strlen( post_data.c_str() ) ) );
-    
-	wlen = esp_http_client_write( client, post_data.c_str(), strlen( post_data.c_str() ) );
-	#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
-	if ( wlen < 0 )
-		ESP_LOGE( TRANSFER_TASK_TAG, "Write failed");
-	#endif
-
-    ESP_ERROR_CHECK( esp_http_client_cleanup( client ) );
 }
 
 void

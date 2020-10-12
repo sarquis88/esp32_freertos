@@ -66,14 +66,10 @@ prvAccelerometerTask( void *pvParameters )
         /* Variables declaration */
         uint16_t i;
         int16_t mpu_accel_values[ MPU_AXIS_COUNT ];
-        #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-        uint16_t rtc_index_first;
-        #endif
         
         /* Variables initialization */
         i = 0;
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-        rtc_index_first = rtc_mpu_data_index;
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Receiving data" );
         #endif
 
@@ -135,7 +131,6 @@ prvAccelerometerTask( void *pvParameters )
 
         /* Log data */ 
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-        //ESP_LOGI( ACCELEROMETER_TASK_TAG, "Data stored in RTC from index %d to %d", rtc_index_first, rtc_mpu_data_index - 1 );
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "Writing data to RAM" );
         #endif
 
