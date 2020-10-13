@@ -79,6 +79,10 @@ prvAccelerometerTask( void *pvParameters )
             /* Checking if RTC storage is full */
             if( rtc_mpu_data_index >= RTC_MPU_DATA_SIZE )
             {
+                #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
+                ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "RAM full" );
+                #endif
+
                 /* Writing data to SPIFFS */
                 ESP_ERROR_CHECK( write_to_spiffs( rtc_mpu_data_array, rtc_mpu_data_index ) );
                 spiffs_data_index += rtc_mpu_data_index;
@@ -89,6 +93,9 @@ prvAccelerometerTask( void *pvParameters )
                 /* Checking SPIFFS space */
                 if( spiffs_data_index >= SPIFFS_BYTES_SIZE )
                 {
+                    #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
+                    ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "SPIFFS full" );
+                    #endif
                     send_data_and_wait();
                     remove( SPIFFS_FILE_NAME );
                     spiffs_data_index = 0;

@@ -82,8 +82,6 @@ prvTransferTask( void *pvParameters )
 			{
 				vTaskDelay( TRANSFER_TASK_DELAY / portTICK_PERIOD_MS );
 			}
-
-			while(true);
 			
 			/* Open data file */
 			read_from_spiffs( data_pointer, data_size );
