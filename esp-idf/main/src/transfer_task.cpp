@@ -84,9 +84,9 @@ prvTransferTask( void *pvParameters )
 			}
 			
 			/* Open data file */
-			read_from_spiffs( data_pointer, data_size );
+			read_from_filesystem( data_pointer, data_size );
 			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
-			ESP_LOGI( TRANSFER_TASK_TAG, "%s", "SPIFFS file opened" );
+			ESP_LOGI( TRANSFER_TASK_TAG, "%s", "Filesystem file opened" );
 			#endif
 
 			/* Send data as blob (chunk by chunk) */
@@ -200,16 +200,16 @@ http_send_plain( uint8_t* data, uint16_t len )
 }
 
 esp_err_t
-read_from_spiffs( uint8_t *data, size_t len )
+read_from_filesystem( uint8_t *data, size_t len )
 {
 	/* Variables declaration */
 	esp_err_t err;
 	FILE* file;
 
-	/* Mount SPIFFS partition */
+	/* Mount filesystem partition */
 	esp_vfs_spiffs_conf_t conf = 
 	{
-		.base_path = SPIFFS_BASE_PATH,
+		.base_path = FILESYSTEM_BASE_PATH,
 		.partition_label = NULL,
 		.max_files = 5,
 		.format_if_mount_failed = true
@@ -221,7 +221,7 @@ read_from_spiffs( uint8_t *data, size_t len )
     }
 
 	/* Open accel data file */
-    file = fopen( SPIFFS_FILE_NAME, "r" );
+    file = fopen( FILESYSTEM_FILE_NAME, "r" );
     if (file == NULL) 
 	{
 		#if TRANSFER_TASK_VERBOSITY_LEVEL > 0

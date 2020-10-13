@@ -7,9 +7,9 @@ static xQueueHandle* accelerometer_task_queue;
 static xQueueHandle* transfer_task_queue;
 
 /* RTC variables declarations */
-RTC_DATA_ATTR uint8_t rtc_mpu_data_array[ 1 ];
-RTC_DATA_ATTR uint16_t rtc_mpu_data_index = 0;
-RTC_DATA_ATTR uint32_t spiffs_data_index = 0;
+RTC_DATA_ATTR uint8_t ram_data_array[ 1 ];
+RTC_DATA_ATTR uint16_t ram_data_index = 0;
+RTC_DATA_ATTR uint32_t filesystem_data_index = 0;
 RTC_DATA_ATTR bool first_boot = true;
 
 /* Precompilation definitions */
@@ -77,31 +77,31 @@ prvAccelerometerTask( void *pvParameters )
         for( i = 0; i < MPU_GROUP_SIZE; i++ ) 
         {
             /* Checking if RTC storage is full */
-            if( rtc_mpu_data_index >= RTC_MPU_DATA_SIZE )
+            if( ram_data_index >= RAM_DATA_SIZE )
             {
                 #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
                 ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "RAM full" );
                 #endif
 
-                /* Writing data to SPIFFS */
-                ESP_ERROR_CHECK( write_to_spiffs( rtc_mpu_data_array, rtc_mpu_data_index ) );
-                spiffs_data_index += rtc_mpu_data_index;
+                /* Writing data to filesystem */
+                ESP_ERROR_CHECK( write_to_filesystem( ram_data_array, ram_data_index ) );
+                filesystem_data_index += ram_data_index;
                 #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-                ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Writing data to SPIFFS" );
+                ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Writing data to filesystem" );
                 #endif
 
-                /* Checking SPIFFS space */
-                if( spiffs_data_index >= SPIFFS_BYTES_SIZE )
+                /* Checking filesystem space */
+                if( filesystem_data_index >= FILESYSTEM_DATA_SIZE )
                 {
                     #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-                    ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "SPIFFS full" );
+                    ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Filesystem full" );
                     #endif
                     send_data_and_wait();
-                    remove( SPIFFS_FILE_NAME );
-                    spiffs_data_index = 0;
+                    remove( FILESYSTEM_FILE_NAME );
+                    filesystem_data_index = 0;
                 }
 
-                rtc_mpu_data_index = 0;
+                ram_data_index = 0;
             }
 
             /* Variables declaration */
@@ -129,16 +129,21 @@ prvAccelerometerTask( void *pvParameters )
             scaled_module = ( module / 257.00 );
 
             /* Storing module into RAM */
-            rtc_mpu_data_array[ rtc_mpu_data_index ] = scaled_module;
+            ram_data_array[ ram_data_index ] = scaled_module;
             #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 2
-            ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] %d", rtc_mpu_data_index, rtc_mpu_data_array[ rtc_mpu_data_index ] );
+            ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] %d", ram_data_index, ram_data_array[ ram_data_index ] );
             #endif
-            rtc_mpu_data_index++;
+            ram_data_index++;
         }
 
         /* Log data */ 
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
         ESP_LOGI( ACCELEROMETER_TASK_TAG, "Writing data to RAM" );
+        #endif
+
+        /* Log data cuantity */ 
+        #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "RAM: %d - FILESYSTEM: %d", ram_data_index, filesystem_data_index );
         #endif
 
         /* Sleeping until FIFO overflows */
@@ -244,7 +249,7 @@ send_data_and_wait()
     xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 
     /* Send data size */
-    queue_buffer    = SPIFFS_BYTES_SIZE;
+    queue_buffer    = FILESYSTEM_DATA_SIZE;
     xQueueSend      ( *transfer_task_queue,   &queue_buffer, portMAX_DELAY );
     xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 
@@ -259,16 +264,16 @@ send_data_and_wait()
 /* ######################################################################### */
 
 esp_err_t
-write_to_spiffs( uint8_t* data, size_t len )
+write_to_filesystem( uint8_t* data, size_t len )
 {
 	/* Variables declaration */
 	FILE* file;
     esp_err_t err;
 
-    /* Mount SPIFFS partition */
+    /* Mount filesystem partition */
 	esp_vfs_spiffs_conf_t conf = 
 	{
-		.base_path = SPIFFS_BASE_PATH,
+		.base_path = FILESYSTEM_BASE_PATH,
 		.partition_label = NULL,
 		.max_files = 5,
 		.format_if_mount_failed = true
@@ -280,7 +285,7 @@ write_to_spiffs( uint8_t* data, size_t len )
     }
 	
 	/* Open accel data file */
-    file = fopen( SPIFFS_FILE_NAME, "a+" );
+    file = fopen( FILESYSTEM_FILE_NAME, "a+" );
     if (file == NULL) 
 	{
 		#if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0

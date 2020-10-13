@@ -11,13 +11,13 @@
 #define MPU_AXIS_COUNT                  ( ( uint8_t     ) 3                 )
 #define MPU_FIFO_SIZE                   ( ( size_t      ) 1024              )
 #define MPU_GROUP_SIZE                  ( ( size_t      ) 170               )
-#define MPU_AX_OFFSET                   ( ( int16_t ) -3750                 )
-#define MPU_AY_OFFSET                   ( ( int16_t ) 1465                  )
+#define MPU_AX_OFFSET                   ( ( int16_t ) -3850                 )
+#define MPU_AY_OFFSET                   ( ( int16_t ) 1420                  )
 #define MPU_AZ_OFFSET                   ( ( int16_t ) -300                  )
 
-#define RTC_MPU_DATA_SIZE               ( ( size_t ) 300                    )   //7990
+#define RAM_DATA_SIZE                   ( ( size_t ) 7900                   )   //7990
 
-#define SPIFFS_BYTES_SIZE               ( ( size_t ) 900                    ) //1500000
+#define FILESYSTEM_DATA_SIZE                 ( ( size_t ) 25000                  ) //1500000
 
 /*
     Function called by the main task
@@ -57,4 +57,4 @@ void start_deep_sleep_mode              ( void                              );
 */
 void send_data_and_wait                 ( void                              );
 
-esp_err_t write_to_spiffs               ( uint8_t*, size_t                  );
+esp_err_t write_to_filesystem           ( uint8_t*, size_t                  );
