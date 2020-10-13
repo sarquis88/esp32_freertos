@@ -7,7 +7,11 @@
 
 #define HTTP_URL                    ( ( const char * ) "http://192.168.100.6:8080"  )
 #define HTTP_KEY                    ( ( const char * ) "Accel"                      )
-#define HTTP_CHUNK_SIZE             ( 1000                                          ) // has to be multiple of FILESYSTEM_DATA_SIZE
+/*
+    If HTTP_CHUNK_SIZE increases, so should the stack memory or stackOverflow may occur
+    HTTP_CHUNK_SIZE has to be multiple of FILESYSTEM_DATA_SIZE // TODO: fix this
+*/
+#define HTTP_CHUNK_SIZE             ( 100                                           ) 
 
 /*
     Function called by the main task.
@@ -48,5 +52,3 @@ void http_send_json                 ( string, string                            
     @param data pointer and length, respectively
 */
 void http_send_plain                ( uint8_t*, uint16_t                            );
-
-esp_err_t read_from_filesystem      ( uint8_t*, size_t                              );

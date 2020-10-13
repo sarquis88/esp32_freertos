@@ -43,8 +43,11 @@ prvTransferTask( void *pvParameters )
 		
 		if( queue_buffer == CODE_STARTTRANSFER )
 		{
-			uint8_t data_chunk[ HTTP_CHUNK_SIZE ], chunk_cantity;
-			uint16_t i, j, data_size;
+			uint8_t data_chunk[ HTTP_CHUNK_SIZE ];
+			uint16_t i;
+			uint32_t data_size;
+			FILE* file;
+			esp_err_t err;
 
 			/* Send ACK message */
 			queue_buffer = CODE_ACK;
@@ -53,7 +56,6 @@ prvTransferTask( void *pvParameters )
 			/* Receive data size */
 			xQueueReceive( *transfer_task_queue, &queue_buffer, portMAX_DELAY );
 			data_size = queue_buffer;
-			uint8_t data_pointer[ data_size ];
 
 			/* Send ACK message */
 			queue_buffer = CODE_ACK;
@@ -82,23 +84,48 @@ prvTransferTask( void *pvParameters )
 			{
 				vTaskDelay( TRANSFER_TASK_DELAY / portTICK_PERIOD_MS );
 			}
-			
+
+			/* Mount filesystem partition */
+			esp_vfs_spiffs_conf_t conf = 
+			{
+				.base_path = FILESYSTEM_BASE_PATH,
+				.partition_label = NULL,
+				.max_files = 5,
+				.format_if_mount_failed = true
+			};
+			err = esp_vfs_spiffs_register( &conf );
+			if( err != ESP_OK && err != ESP_ERR_INVALID_STATE )
+			{
+				#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
+				ESP_LOGE( TRANSFER_TASK_TAG, "Error mounting the filesystem" );
+				#endif
+				return;
+			}
+
 			/* Open data file */
-			read_from_filesystem( data_pointer, data_size );
-			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
-			ESP_LOGI( TRANSFER_TASK_TAG, "%s", "Filesystem file opened" );
-			#endif
+			file = fopen( FILESYSTEM_FILE_NAME, "r" );
+			if (file == NULL) 
+			{
+				#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
+				ESP_LOGE( TRANSFER_TASK_TAG, "Error opening file for reading" );
+				#endif
+				return;
+			}
 
 			/* Send data as blob (chunk by chunk) */
-			chunk_cantity = data_size / HTTP_CHUNK_SIZE;
-			for( i = 0; i < chunk_cantity; i++ )
+			for( i = 0; i < data_size / HTTP_CHUNK_SIZE; i++ )
 			{	
-				for( j = i * HTTP_CHUNK_SIZE; j < ( i + 1 )  * HTTP_CHUNK_SIZE; j++ )
+				if( fread( (void*) data_chunk, sizeof( uint8_t ), HTTP_CHUNK_SIZE, file ) != HTTP_CHUNK_SIZE )
 				{
-					data_chunk[ j - i * HTTP_CHUNK_SIZE ] = data_pointer[ j ];
+					#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
+					ESP_LOGE( TRANSFER_TASK_TAG, "Error reading the data file" );
+					#endif
 				}
 				http_send_plain( data_chunk, HTTP_CHUNK_SIZE );
 			}
+
+			/* Close file and log */
+			fclose( file );
 			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
 			ESP_LOGI( TRANSFER_TASK_TAG, "Data (%d) has been retranssmited from accelerometer through WiFi", data_size );
 			#endif
@@ -185,54 +212,20 @@ http_send_plain( uint8_t* data, uint16_t len )
 	#pragma GCC diagnostic pop
 
 	esp_http_client_handle_t client = esp_http_client_init( &config );
-
 	ESP_ERROR_CHECK( esp_http_client_set_method( client, HTTP_METHOD_POST ) );
     ESP_ERROR_CHECK( esp_http_client_set_header( client, "Content-Type", "text/plain" ) );
-    ESP_ERROR_CHECK( esp_http_client_open( client, len ) );
+		
+	/* If server is not found, keep trying */
+	while( esp_http_client_open( client, len ) != ESP_OK )
+	{
+		vTaskDelay( TRANSFER_TASK_DELAY / portTICK_PERIOD_MS );
+	}
     
 	wlen = esp_http_client_write( client, ( char* ) data, len );
 	#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
 	if ( wlen < 0 )
-		ESP_LOGE( TRANSFER_TASK_TAG, "Write failed");
+		ESP_LOGE( TRANSFER_TASK_TAG, "Write failed" );
 	#endif
 
     ESP_ERROR_CHECK( esp_http_client_cleanup( client ) );
-}
-
-esp_err_t
-read_from_filesystem( uint8_t *data, size_t len )
-{
-	/* Variables declaration */
-	esp_err_t err;
-	FILE* file;
-
-	/* Mount filesystem partition */
-	esp_vfs_spiffs_conf_t conf = 
-	{
-		.base_path = FILESYSTEM_BASE_PATH,
-		.partition_label = NULL,
-		.max_files = 5,
-		.format_if_mount_failed = true
-	};
-	err = esp_vfs_spiffs_register( &conf );
-	if( err != ESP_OK && err != ESP_ERR_INVALID_STATE )
-    {
-		return err;
-    }
-
-	/* Open accel data file */
-    file = fopen( FILESYSTEM_FILE_NAME, "r" );
-    if (file == NULL) 
-	{
-		#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
-        ESP_LOGE( TRANSFER_TASK_TAG, "Failed to open file for reading" );
-		#endif
-        return ESP_FAIL;
-    }
-
-	/* Read data from file */
-	fread( (void*) data, sizeof( uint8_t ), len, file );
-
-	fclose( file );
-	return ESP_OK;
 }
