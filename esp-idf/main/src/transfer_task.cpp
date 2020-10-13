@@ -40,7 +40,7 @@ prvTransferTask( void *pvParameters )
 	{	
 		/* Start receiving any message from queue */
         xQueueReceive( *transfer_task_queue, &queue_buffer, portMAX_DELAY );
-
+		
 		if( queue_buffer == CODE_STARTTRANSFER )
 		{
 			uint8_t data_chunk[ HTTP_CHUNK_SIZE ], chunk_cantity;
@@ -65,13 +65,17 @@ prvTransferTask( void *pvParameters )
 			ESP_LOGI( TRANSFER_TASK_TAG, "%s", "WiFi has been configured" );
 			#endif
 
-			// TODO FIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIX
 			/* Wifi connection */
-			while( !connected )
+			connection:
+			ESP_ERROR_CHECK( esp_wifi_connect() );
+			vTaskDelay( TRANSFER_TASK_DELAY / portTICK_PERIOD_MS );
+			if( !connected )
 			{
-				ESP_ERROR_CHECK( esp_wifi_connect() );
+				ESP_ERROR_CHECK( esp_wifi_stop() );
 				vTaskDelay( TRANSFER_TASK_DELAY / portTICK_PERIOD_MS );
-			} 
+				ESP_ERROR_CHECK( esp_wifi_start() );
+				goto connection;
+			}
 
 			/* Waiting for WiFi connection stablished */
 			while( !ip_available )
@@ -79,6 +83,8 @@ prvTransferTask( void *pvParameters )
 				vTaskDelay( TRANSFER_TASK_DELAY / portTICK_PERIOD_MS );
 			}
 
+			while(true);
+			
 			/* Open data file */
 			read_from_spiffs( data_pointer, data_size );
 			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0

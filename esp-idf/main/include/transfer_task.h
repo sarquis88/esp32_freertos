@@ -1,6 +1,6 @@
 #include "main_task.h"
 
-#define TRANSFER_TASK_DELAY         ( 1000                                          )
+#define TRANSFER_TASK_DELAY         ( 3000                                          )
 #define TRANSFER_TASK_PRIORITY		( tskIDLE_PRIORITY + 2                          )
 #define TRANSFER_TASK_STACK_SIZE	( configMINIMAL_STACK_SIZE + 8096               )
 #define TRANSFER_TASK_TAG           ( ( const char * ) "Transfer"                   )
