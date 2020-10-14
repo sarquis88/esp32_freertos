@@ -9,7 +9,6 @@
 #define HTTP_KEY                    ( ( const char * ) "Accel"                      )
 /*
     If HTTP_CHUNK_SIZE increases, so should the stack memory or stackOverflow may occur
-    HTTP_CHUNK_SIZE has to be multiple of FILESYSTEM_DATA_SIZE // TODO: fix this
 */
 #define HTTP_CHUNK_SIZE             ( 100                                           ) 
 

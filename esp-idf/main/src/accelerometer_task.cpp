@@ -67,16 +67,15 @@ prvAccelerometerTask( void *pvParameters )
         uint16_t i;
         int16_t mpu_accel_values[ MPU_AXIS_COUNT ];
         
-        /* Variables initialization */
-        i = 0;
+        /* Log data */ 
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-        ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Receiving data" );
+        ESP_LOGI( ACCELEROMETER_TASK_TAG, "Writing data to RAM" );
         #endif
 
         /* Start MPU data reading */
         for( i = 0; i < MPU_GROUP_SIZE; i++ ) 
         {
-            /* Checking if RTC storage is full */
+            /* Checking if RAM is full */
             if( ram_data_index >= RAM_DATA_SIZE )
             {
                 #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
@@ -86,22 +85,23 @@ prvAccelerometerTask( void *pvParameters )
                 /* Writing data to filesystem */
                 ESP_ERROR_CHECK( write_to_filesystem( ram_data_array, ram_data_index ) );
                 filesystem_data_index += ram_data_index;
+                ram_data_index = 0;
                 #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
                 ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Writing data to filesystem" );
                 #endif
 
-                /* Checking filesystem space */
+                /* Checking if filesystem is full */
                 if( filesystem_data_index >= FILESYSTEM_DATA_SIZE )
                 {
                     #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
                     ESP_LOGI( ACCELEROMETER_TASK_TAG, "%s", "Filesystem full" );
                     #endif
-                    send_data_and_wait();
+
+                    /* Send data to transferTask and restore filesystem */
+                    send_data_and_wait( filesystem_data_index );
                     remove( FILESYSTEM_FILE_NAME );
                     filesystem_data_index = 0;
-                }
-
-                ram_data_index = 0;
+                }                
             }
 
             /* Variables declaration */
@@ -135,11 +135,6 @@ prvAccelerometerTask( void *pvParameters )
             #endif
             ram_data_index++;
         }
-
-        /* Log data */ 
-        #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
-        ESP_LOGI( ACCELEROMETER_TASK_TAG, "Writing data to RAM" );
-        #endif
 
         /* Log data cuantity */ 
         #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 0
@@ -239,7 +234,7 @@ start_deep_sleep_mode()
 /* ######################################################################### */
 
 void
-send_data_and_wait()
+send_data_and_wait( uint32_t data_len )
 {
     uint32_t queue_buffer;
 
@@ -249,7 +244,7 @@ send_data_and_wait()
     xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 
     /* Send data size */
-    queue_buffer    = FILESYSTEM_DATA_SIZE;
+    queue_buffer    = data_len;
     xQueueSend      ( *transfer_task_queue,   &queue_buffer, portMAX_DELAY );
     xQueueReceive   ( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 

@@ -31,8 +31,10 @@ prvTransferTask( void *pvParameters )
     ESP_LOGI( TRANSFER_TASK_TAG, "Task initialized" );    
     #endif
 
+	/* Variable declarations */
 	uint32_t queue_buffer;
 
+	/* Variable initialization */
 	connected = false;
 	ip_available = false;
 	
@@ -43,7 +45,8 @@ prvTransferTask( void *pvParameters )
 		
 		if( queue_buffer == CODE_STARTTRANSFER )
 		{
-			uint8_t data_chunk[ HTTP_CHUNK_SIZE ];
+			/* Variable declarations */
+			uint8_t data_chunk[ HTTP_CHUNK_SIZE ], chunk_cuantity;
 			uint16_t i;
 			uint32_t data_size;
 			FILE* file;
@@ -79,12 +82,6 @@ prvTransferTask( void *pvParameters )
 				goto connection;
 			}
 
-			/* Waiting for WiFi connection stablished */
-			while( !ip_available )
-			{
-				vTaskDelay( TRANSFER_TASK_DELAY / portTICK_PERIOD_MS );
-			}
-
 			/* Mount filesystem partition */
 			esp_vfs_spiffs_conf_t conf = 
 			{
@@ -112,8 +109,15 @@ prvTransferTask( void *pvParameters )
 				return;
 			}
 
+			/* Waiting for WiFi connection stablished */
+			while( !ip_available )
+			{
+				vTaskDelay( TRANSFER_TASK_DELAY / portTICK_PERIOD_MS );
+			}
+
 			/* Send data as blob (chunk by chunk) */
-			for( i = 0; i < data_size / HTTP_CHUNK_SIZE; i++ )
+			chunk_cuantity = data_size / HTTP_CHUNK_SIZE; 
+			for( i = 0; i < chunk_cuantity; i++ )
 			{	
 				if( fread( (void*) data_chunk, sizeof( uint8_t ), HTTP_CHUNK_SIZE, file ) != HTTP_CHUNK_SIZE )
 				{
@@ -122,6 +126,19 @@ prvTransferTask( void *pvParameters )
 					#endif
 				}
 				http_send_plain( data_chunk, HTTP_CHUNK_SIZE );
+			}
+
+			/* Check for data not sended */
+			if( data_size > chunk_cuantity * HTTP_CHUNK_SIZE )
+			{
+				uint32_t remainder = data_size - chunk_cuantity * HTTP_CHUNK_SIZE;
+				if( fread( (void*) data_chunk, sizeof( uint8_t ), remainder, file ) != remainder )
+				{
+					#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
+					ESP_LOGE( TRANSFER_TASK_TAG, "Error reading the data file" );
+					#endif
+				}
+				http_send_plain( data_chunk, remainder );
 			}
 
 			/* Close file and log */
@@ -142,6 +159,9 @@ prvTransferTask( void *pvParameters )
     #endif
 	vTaskDelete( NULL );
 }
+
+/* ######################################################################### */
+/* ######################################################################### */
 
 esp_err_t
 event_handler( void *ctx, system_event_t *event )
@@ -199,6 +219,9 @@ wifi_config( string ssid, string passwd )
 	ESP_ERROR_CHECK( esp_wifi_set_config( WIFI_IF_STA, &sta_config ) );
 	ESP_ERROR_CHECK( esp_wifi_start() );
 }
+
+/* ######################################################################### */
+/* ######################################################################### */
 
 void
 http_send_plain( uint8_t* data, uint16_t len )

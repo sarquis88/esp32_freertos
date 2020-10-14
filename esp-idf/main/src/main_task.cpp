@@ -11,6 +11,7 @@
 void 
 app_main( void )
 {	
+
 	#if MAIN_TASK_VERBOSITY_LEVEL > 0
 	ESP_LOGI( MAIN_TASK_TAG, "%s", "" );
 	ESP_LOGI( MAIN_TASK_TAG, "%s", "Starting main task" );

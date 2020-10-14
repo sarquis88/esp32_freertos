@@ -17,7 +17,7 @@
 
 #define RAM_DATA_SIZE                   ( ( size_t ) 169                    )   //7990
 
-#define FILESYSTEM_DATA_SIZE            ( ( size_t ) 169                   ) //1500000
+#define FILESYSTEM_DATA_SIZE            ( ( size_t ) 250                   ) //2000000
 
 /*
     Function called by the main task
@@ -55,6 +55,6 @@ void start_deep_sleep_mode              ( void                              );
 /*
     Send messages to the transfer task for start the data transmition
 */
-void send_data_and_wait                 ( void                              );
+void send_data_and_wait                 ( uint32_t                          );
 
 esp_err_t write_to_filesystem           ( uint8_t*, size_t                  );
