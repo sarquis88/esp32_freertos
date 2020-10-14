@@ -15,9 +15,14 @@
 #define MPU_AY_OFFSET                   ( ( int16_t ) 1420                  )
 #define MPU_AZ_OFFSET                   ( ( int16_t ) -300                  )
 
-#define RAM_DATA_SIZE                   ( ( size_t ) 169                    )   //7990
-
-#define FILESYSTEM_DATA_SIZE            ( ( size_t ) 250                   ) //2000000
+/* 
+    Max = ~7900
+*/
+#define RAM_DATA_SIZE                   ( ( size_t ) 7500                   )  
+/* 
+    Max = ~2400000
+*/
+#define FILESYSTEM_DATA_SIZE            ( ( size_t ) 30000                  )  
 
 /*
     Function called by the main task

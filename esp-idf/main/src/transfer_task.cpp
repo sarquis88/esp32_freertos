@@ -46,9 +46,8 @@ prvTransferTask( void *pvParameters )
 		if( queue_buffer == CODE_STARTTRANSFER )
 		{
 			/* Variable declarations */
-			uint8_t data_chunk[ HTTP_CHUNK_SIZE ], chunk_cuantity;
-			uint16_t i;
-			uint32_t data_size;
+			uint8_t data_chunk[ HTTP_CHUNK_SIZE ];
+			uint32_t chunk_cuantity, i, data_size;
 			FILE* file;
 			esp_err_t err;
 
