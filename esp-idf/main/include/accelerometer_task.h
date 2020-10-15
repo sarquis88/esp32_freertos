@@ -11,18 +11,18 @@
 #define MPU_AXIS_COUNT                  ( ( uint8_t     ) 3                 )
 #define MPU_FIFO_SIZE                   ( ( size_t      ) 1024              )
 #define MPU_GROUP_SIZE                  ( ( size_t      ) 170               )
-#define MPU_AX_OFFSET                   ( ( int16_t ) -3850                 )
-#define MPU_AY_OFFSET                   ( ( int16_t ) 1420                  )
+#define MPU_AX_OFFSET                   ( ( int16_t ) -3700                 )
+#define MPU_AY_OFFSET                   ( ( int16_t ) 1460                  )
 #define MPU_AZ_OFFSET                   ( ( int16_t ) -300                  )
 
 /* 
     Max = ~7900
 */
-#define RAM_DATA_SIZE                   ( ( size_t ) 7500                   )  
+#define RAM_DATA_SIZE                   ( ( size_t ) 169                   )  
 /* 
     Max = ~2400000
 */
-#define FILESYSTEM_DATA_SIZE            ( ( size_t ) 30000                  )  
+#define FILESYSTEM_DATA_SIZE            ( ( size_t ) 169                  )  
 
 /*
     Function called by the main task
@@ -56,6 +56,8 @@ void mpu_init                           ( void                              );
     It can only be awakened by the pin 2
 */
 void start_deep_sleep_mode              ( void                              );
+
+uint8_t get_scaled_module               ( int16_t [ MPU_AXIS_COUNT ]        );
 
 /*
     Send messages to the transfer task for start the data transmition

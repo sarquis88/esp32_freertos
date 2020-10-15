@@ -104,36 +104,17 @@ prvAccelerometerTask( void *pvParameters )
                 }                
             }
 
-            /* Variables declaration */
-            uint8_t j, scaled_module;
-            float module;
-
             /* Accelerometer's data request */
             mpu.getFIFOBytes( (uint8_t*) mpu_accel_values, MPU_AXIS_COUNT * 2 );
-    
-            /* Swap nibbles */
-            for( j = 0; j < MPU_AXIS_COUNT; j++ )
-            {   
-                uint8_t h_byte = ( mpu_accel_values[ j ] & 0xFF00 ) >> 8;
-                uint8_t l_byte = mpu_accel_values[ j ] & 0x00FF;
-                mpu_accel_values[ j ] = l_byte << 8 | h_byte;
-            }
 
-            /* Calculate data module */
-            module = 0;
-            for( j = 0; j < MPU_AXIS_COUNT; j++ )
-                module += mpu_accel_values[ j ] * mpu_accel_values[ j ];
-            module = sqrt( module );
+            /* Store module into RAM */
+            ram_data_array[ ram_data_index ] = get_scaled_module( mpu_accel_values );
+            ram_data_index++;
 
-            /* Scaling module (converting it to 8-bit) */
-            scaled_module = ( module / 257.00 );
-
-            /* Storing module into RAM */
-            ram_data_array[ ram_data_index ] = scaled_module;
+            /* Log if desired */
             #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 2
             ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] %d", ram_data_index, ram_data_array[ ram_data_index ] );
             #endif
-            ram_data_index++;
         }
 
         /* Log data cuantity */ 
@@ -228,6 +209,30 @@ start_deep_sleep_mode()
     ESP_ERROR_CHECK( rtc_gpio_pulldown_en( GPIO_PIN_2 ) );
     ESP_ERROR_CHECK( esp_sleep_enable_ext0_wakeup( GPIO_PIN_2, 1 ) );
 	esp_deep_sleep_start();
+}
+
+uint8_t get_scaled_module( int16_t raw_data[ MPU_AXIS_COUNT ] )
+{
+    /* Variables declaration */
+    uint8_t j;
+    float module;
+
+    /* Swap nibbles */
+    for( j = 0; j < MPU_AXIS_COUNT; j++ )
+    {   
+        uint8_t h_byte = ( raw_data[ j ] & 0xFF00 ) >> 8;
+        uint8_t l_byte = raw_data[ j ] & 0x00FF;
+        raw_data[ j ] = l_byte << 8 | h_byte;
+    }
+
+    /* Calculate data module */
+    module = 0;
+    for( j = 0; j < MPU_AXIS_COUNT; j++ )
+        module += raw_data[ j ] * raw_data[ j ];
+    module = sqrt( module );
+
+    /* Scaling module (converting it to 8-bit) */
+    return ( module / 257.00 );
 }
 
 /* ######################################################################### */
