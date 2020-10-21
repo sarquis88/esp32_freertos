@@ -64,7 +64,7 @@ prvTransferTask( void *pvParameters )
 			xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );
 
 			/* Wifi configuration */
-			wifi_config( string( "AbortoLegalYa" ), string( "mirifea123" ) );
+			wifi_config( string( WIFI_SSID ), string( WIFI_PASSWD ) );
 			#if TRANSFER_TASK_VERBOSITY_LEVEL > 0
 			ESP_LOGI( TRANSFER_TASK_TAG, "%s", "WiFi has been configured" );
 			#endif

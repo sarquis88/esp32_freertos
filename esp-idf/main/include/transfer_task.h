@@ -12,6 +12,9 @@
 */
 #define HTTP_CHUNK_SIZE             ( 100                                           ) 
 
+#define WIFI_SSID                   ( ( const char * ) "AbortoLegalYa"              )
+#define WIFI_PASSWD                 ( ( const char * ) "mirifea123"                 )
+
 /*
     Function called by the main task.
     It prepares and starts the transfer task.

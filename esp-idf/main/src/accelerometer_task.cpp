@@ -147,9 +147,9 @@ i2c_init()
     /* I2C config */
     i2c_config_t i2c_conf;
     i2c_conf.mode               = I2C_MODE_MASTER;
-    i2c_conf.sda_io_num         = GPIO_PIN_18;
+    i2c_conf.sda_io_num         = GPIO_PIN_19;
     i2c_conf.sda_pullup_en      = GPIO_PULLUP_ENABLE;
-    i2c_conf.scl_io_num         = GPIO_PIN_19;
+    i2c_conf.scl_io_num         = GPIO_PIN_18;
     i2c_conf.scl_pullup_en      = GPIO_PULLUP_ENABLE;
     i2c_conf.master.clk_speed   = I2C_MASTER_FREQ_HZ;
     
