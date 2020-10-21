@@ -10,7 +10,7 @@
 /*
     If HTTP_CHUNK_SIZE increases, so should the stack memory or stackOverflow may occur
 */
-#define HTTP_CHUNK_SIZE             ( 100                                           ) 
+#define HTTP_CHUNK_SIZE             ( 500                                           ) 
 
 #define WIFI_SSID                   ( ( const char * ) "AbortoLegalYa"              )
 #define WIFI_PASSWD                 ( ( const char * ) "mirifea123"                 )

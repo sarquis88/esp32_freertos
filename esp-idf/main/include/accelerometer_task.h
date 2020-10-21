@@ -18,11 +18,11 @@
 /* 
     Max = ~7900
 */
-#define RAM_DATA_SIZE                   ( ( size_t ) 169                   )  
+#define RAM_DATA_SIZE                   ( ( size_t ) 500                   )  
 /* 
     Max = ~2400000
 */
-#define FILESYSTEM_DATA_SIZE            ( ( size_t ) 169                  )  
+#define FILESYSTEM_DATA_SIZE            ( ( size_t ) 500                  )  
 
 /*
     Function called by the main task
@@ -65,3 +65,6 @@ uint8_t get_scaled_module               ( int16_t [ MPU_AXIS_COUNT ]        );
 void send_data_and_wait                 ( uint32_t                          );
 
 esp_err_t write_to_filesystem           ( uint8_t*, size_t                  );
+
+
+
