@@ -11,9 +11,9 @@
 #define MPU_AXIS_COUNT                  ( ( uint8_t     ) 3                 )
 #define MPU_FIFO_SIZE                   ( ( size_t      ) 1024              )
 #define MPU_GROUP_SIZE                  ( ( size_t      ) 170               )
-#define MPU_AX_OFFSET                   ( ( int16_t ) -3700                 )
-#define MPU_AY_OFFSET                   ( ( int16_t ) 1460                  )
-#define MPU_AZ_OFFSET                   ( ( int16_t ) -300                  )
+#define MPU_AX_OFFSET                   ( ( int16_t ) -3200                 )
+#define MPU_AY_OFFSET                   ( ( int16_t ) -1480                 )
+#define MPU_AZ_OFFSET                   ( ( int16_t ) -350                  )
 
 /* 
     Max = ~7900
