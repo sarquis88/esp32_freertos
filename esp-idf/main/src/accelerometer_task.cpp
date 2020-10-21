@@ -112,7 +112,7 @@ prvAccelerometerTask( void *pvParameters )
             ram_data_index++;
 
             /* Log if desired */
-            #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 2
+            #if ACCELEROMETER_TASK_VERBOSITY_LEVEL > 1
             ESP_LOGI( ACCELEROMETER_TASK_TAG, "[%d] %d", ram_data_index, ram_data_array[ ram_data_index ] );
             #endif
         }
@@ -228,7 +228,9 @@ uint8_t get_scaled_module( int16_t raw_data[ MPU_AXIS_COUNT ] )
     /* Calculate data module */
     module = 0;
     for( j = 0; j < MPU_AXIS_COUNT; j++ )
+    {
         module += raw_data[ j ] * raw_data[ j ];
+    }
     module = sqrt( module );
 
     /* Scaling module (converting it to 8-bit) */
