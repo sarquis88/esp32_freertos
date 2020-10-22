@@ -1,6 +1,6 @@
 #include "main_task.h"
 
-#define ACCELEROMETER_TASK_DELAY_MS				( ( uint16_t ) 250                  )
+#define ACCELEROMETER_TASK_DELAY_MS				( ( uint16_t ) 1000                 )
 #define ACCELEROMETER_TASK_PRIORITY			    ( tskIDLE_PRIORITY + 2              )
 #define ACCELEROMETER_TASK_STACK_SIZE		    ( configMINIMAL_STACK_SIZE + 6000   ) 
 #define ACCELEROMETER_TASK_TAG                  ( ( const char* ) "Accelerometer"   )
@@ -16,6 +16,12 @@
 #define MPU_AX_OFFSET               ( ( int16_t ) -3600                 )
 #define MPU_AY_OFFSET               ( ( int16_t ) 1450                  )
 #define MPU_AZ_OFFSET               ( ( int16_t ) -300                  )
+
+#define AUTOCALIBRATION_STEPS       ( 4                                 )
+#define AUTOCALIBRATION_STEP_L0     ( 1000                              )
+#define AUTOCALIBRATION_STEP_L1     ( 100                               )
+#define AUTOCALIBRATION_STEP_L2     ( 10                                )
+#define AUTOCALIBRATION_STEP_L3     ( 1                                 )
 
 void prvAccelerometerTask       ( void *                                );
 void start_accelerometer_task   ( void                                  );

@@ -51,32 +51,121 @@ start_accelerometer_task( void )
 void 
 prvAccelerometerTask( void *pvParameters )
 {  
-    /* Auto calibration */  // TODO
-    //mpu_calibration();
-
-    /* Variables declaration */
-    int16_t mpu_accel_values[ MPU_AXIS_COUNT ];
-    uint32_t buffer;
-
     /* Start task loop */
     for(;;) 
 	{    
-        if( xQueueReceive( interrupt_queue, &buffer, portMAX_DELAY ) ) 
-		{
-            /* Data request and reception */
-            mpu_accel_values[ 0 ] = mpu.getAccelerationX();
-            mpu_accel_values[ 1 ] = mpu.getAccelerationY();
-            mpu_accel_values[ 2 ] = mpu.getAccelerationZ();   
+        int16_t accel_value, offset;
+        uint16_t steps[ AUTOCALIBRATION_STEPS ];
+        uint8_t step_level, step_level_counter, axis;
+        float accel_value_module;
 
-            /* Log data */
-            #if ACCELEROMETER_TASK_LOGGING == 1
-                ESP_LOGI( ACCELEROMETER_TASK_TAG, "X=%d, Y=%d, Z=%d, |A|=%d", 
-                            mpu_accel_values[ 0 ] / 257,
-                            mpu_accel_values[ 1 ] / 257,
-                            mpu_accel_values[ 2 ] / 257,
-                            get_scaled_module( mpu_accel_values ) );
-            #endif
+        offset = 0;
+        step_level = 0;
+        step_level_counter = 0;
+        axis = 0;
+        steps[ 0 ] = AUTOCALIBRATION_STEP_L0;
+        steps[ 1 ] = AUTOCALIBRATION_STEP_L1;
+        steps[ 2 ] = AUTOCALIBRATION_STEP_L2;
+        steps[ 3 ] = AUTOCALIBRATION_STEP_L3;
+
+        mpu.setXAccelOffset( offset );
+
+        while( true )
+        {
+            if( axis == 0 )
+                accel_value = mpu.getAccelerationX();
+            else if( axis == 1 )
+                accel_value = mpu.getAccelerationY();
+            else if( axis == 2 )
+                accel_value = mpu.getAccelerationZ();
+            
+
+            ESP_LOGI( ACCELEROMETER_TASK_TAG, "axis=%d, value=%d offset=%d", axis, accel_value, offset );
+
+            accel_value_module = sqrt( accel_value * accel_value );
+
+            if( accel_value_module < 100 )
+            {
+                if( step_level != 3 )
+                {
+                    step_level = 3;
+                    step_level_counter = 0;
+                }
+            }
+            else if( accel_value_module < 500 )
+            {
+                if( step_level != 2 )
+                {
+                    step_level = 2;
+                    step_level_counter = 0;
+                }
+            }
+            else if( accel_value_module < 6000 )
+            {
+                if( step_level != 1 )
+                {
+                    step_level = 1;
+                    step_level_counter = 0;
+                }
+            }
+            else
+            {
+                if( step_level != 0 )
+                {
+                    step_level = 0;
+                    step_level_counter = 0;
+                }
+            }
+
+            if( accel_value > 0 )
+            {
+                offset -= steps[ step_level ];
+            }
+            else if( accel_value < 0  )
+            {
+                offset += steps[ step_level ];
+            }
+
+            step_level_counter++;
+
+            if( step_level_counter == 15 )
+            {
+                if( step_level == AUTOCALIBRATION_STEPS - 1 )
+                {
+                    axis++;
+                    step_level_counter = 0;
+                }
+                else
+                {
+                    esp_restart();
+                }
+            }
+
+            if( axis == 0 )
+                mpu.setXAccelOffset( offset );
+            else if( axis == 1 )
+                mpu.setYAccelOffset( offset );
+            else if( axis == 2 )
+                mpu.setZAccelOffset( offset );
+            else 
+            {
+                #if ACCELEROMETER_TASK_LOGGING == 1
+                ESP_LOGI( ACCELEROMETER_TASK_TAG, "C'est fini" );
+                #endif
+
+                for(;;)
+                {
+                    vTaskDelay( ACCELEROMETER_TASK_DELAY_MS / portTICK_PERIOD_MS);
+                }
+            }
+
+            vTaskDelay( ACCELEROMETER_TASK_DELAY_MS / portTICK_PERIOD_MS);
         }
+
+        /* Log data */
+        #if ACCELEROMETER_TASK_LOGGING == 1
+            ESP_LOGI( ACCELEROMETER_TASK_TAG, "X=%d", accel_value );
+        #endif
     }
 
     /* Task should not reach here */
@@ -129,10 +218,6 @@ mpu_init()
     mpu.setDLPFMode( MPU6050_DLPF_BW_5 );
 
     mpu.setRate( 0xFF );
-
-    mpu.setXAccelOffset( MPU_AX_OFFSET );
-    mpu.setYAccelOffset( MPU_AY_OFFSET );
-    mpu.setZAccelOffset( MPU_AZ_OFFSET );
 
     mpu.setSleepEnabled( false );
     mpu.setTempSensorEnabled( false );
