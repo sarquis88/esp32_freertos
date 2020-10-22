@@ -12,7 +12,7 @@ The main goals of the proyect are:
  * The priors but paying attention on the power management 
 
 ### Schematic 
-![Schematic](https://github.com/sarquis88/final-concurrente/blob/master/schematic.png)
+![Schematic](https://github.com/sarquis88/esp32_freertos/blob/master/schematic.png)
  * ESP32 Port 18 <-> MPU6050 SCL
  * ESP32 Port 19 <-> MPU6050 SDA
  * ESP32 Port 2  <-> MPU6050 INT
