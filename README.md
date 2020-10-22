@@ -12,15 +12,19 @@ The main goals of the proyect are:
  * The priors but paying attention on the power management 
 
 ### Schematic 
-// TODO
+![Schematic](https://github.com/sarquis88/final-concurrente/blob/master/schematic.png)
+ * ESP32 Port 18 <-> MPU6050 SCL
+ * ESP32 Port 19 <-> MPU6050 SDA
+ * ESP32 Port 2  <-> MPU6050 INT
+ * GND           <-> MPU6050 AD0
 
 ### Run in one command (Linux only)
 Clone the repository and go to the proyect folder, then
 
-* Connect hardware to PC
-* ```make flashandtest``` build, flash, and monitor the proyect
+ * Connect hardware to PC
+ * ```make flashandtest``` build, flash, and monitor the proyect
  
 This is assuming the hardware is in the serial port /dev/ttyUSB0. If not, change it in the scripts under the scripts dir.
 
 ### Known bugs
-* Sometimes, when you flash the micro, it doesn't wake up when waiting for the interrupt from the accelerometer. This can be solved reseting it. After the bug is solved, is not going to happen again until a new flash.
+ * Sometimes, when you flash the micro, it doesn't wake up when waiting for the interrupt from the accelerometer. This can be solved reseting it. After the bug is solved, is not going to happen again until a new flash.

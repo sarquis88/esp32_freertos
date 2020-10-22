@@ -57,6 +57,11 @@ void mpu_init                           ( void                              );
 */
 void start_deep_sleep_mode              ( void                              );
 
+/*
+    Compute and convert the raw data from the accelerometer into one byte
+    @param raw_data vector with the three axis values
+    @return scaled module of the raw values
+*/
 uint8_t get_scaled_module               ( int16_t [ MPU_AXIS_COUNT ]        );
 
 /*
@@ -64,6 +69,11 @@ uint8_t get_scaled_module               ( int16_t [ MPU_AXIS_COUNT ]        );
 */
 void send_data_and_wait                 ( uint32_t                          );
 
+/*
+    Sends the data from the RAM into the SPIFFS filesystem
+    @param data_pointer pointer to the RAM data
+    @param len size in bytes of the data
+*/
 esp_err_t write_to_filesystem           ( uint8_t*, size_t                  );
 
 
