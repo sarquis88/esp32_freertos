@@ -11,6 +11,9 @@ The main goals of the proyect are:
  * Send data through WiFi when desired
  * The priors but paying attention on the power management 
 
+### Schematic 
+// TODO
+
 ### Run in one command (Linux only)
 Clone the repository and go to the proyect folder, then
 
