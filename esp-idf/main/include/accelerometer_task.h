@@ -13,16 +13,18 @@
 #define MPU_AXIS_COUNT              ( ( uint8_t ) 3                     )
 #define MPU_FIFO_SIZE               ( ( size_t ) 1024                   )
 #define MPU_GROUP_SIZE              ( ( size_t ) 150                    )
-#define MPU_AX_OFFSET               ( ( int16_t ) -3200                 )
-#define MPU_AY_OFFSET               ( ( int16_t ) -1480                 )
-#define MPU_AZ_OFFSET               ( ( int16_t ) -350                  )
+#define MPU_AX_OFFSET               ( ( int16_t ) -3600                 )
+#define MPU_AY_OFFSET               ( ( int16_t ) 1450                  )
+#define MPU_AZ_OFFSET               ( ( int16_t ) -300                  )
 
 void prvAccelerometerTask       ( void *                                );
 void start_accelerometer_task   ( void                                  );
 
-esp_err_t i2c_init              ( void              );
+esp_err_t i2c_init              ( void                                  );
 
-void mpu_init                   ( void              );
-void mpu_check_reg_values       ( void              );
+void mpu_init                   ( void                                  );
+void mpu_check_reg_values       ( void                                  );
 
-void IRAM_ATTR gpio_int_handler ( void*             );
+void IRAM_ATTR gpio_int_handler ( void*                                 );
+
+uint8_t get_scaled_module       ( int16_t [ MPU_AXIS_COUNT ]            );

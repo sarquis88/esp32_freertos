@@ -51,7 +51,7 @@ start_accelerometer_task( void )
 void 
 prvAccelerometerTask( void *pvParameters )
 {  
-    /* Auto calibration */
+    /* Auto calibration */  // TODO
     //mpu_calibration();
 
     /* Variables declaration */
@@ -63,23 +63,10 @@ prvAccelerometerTask( void *pvParameters )
 	{    
         if( xQueueReceive( interrupt_queue, &buffer, portMAX_DELAY ) ) 
 		{
-			/* Variables declaration */
-            uint8_t j, scaled_module;
-            float module;
-
             /* Data request and reception */
             mpu_accel_values[ 0 ] = mpu.getAccelerationX();
             mpu_accel_values[ 1 ] = mpu.getAccelerationY();
-            mpu_accel_values[ 2 ] = mpu.getAccelerationZ();
-
-            /* Calculate data module */
-            module = 0;
-            for( j = 0; j < MPU_AXIS_COUNT; j++ )
-                module += mpu_accel_values[ j ] * mpu_accel_values[ j ];
-            module = sqrt( module );
-
-            /* Module scaling */
-            scaled_module = ( module / 257.00 );
+            mpu_accel_values[ 2 ] = mpu.getAccelerationZ();   
 
             /* Log data */
             #if ACCELEROMETER_TASK_LOGGING == 1
@@ -87,7 +74,7 @@ prvAccelerometerTask( void *pvParameters )
                             mpu_accel_values[ 0 ] / 257,
                             mpu_accel_values[ 1 ] / 257,
                             mpu_accel_values[ 2 ] / 257,
-                            scaled_module );
+                            get_scaled_module( mpu_accel_values ) );
             #endif
         }
     }
@@ -185,4 +172,21 @@ IRAM_ATTR gpio_int_handler( void* arg )
 {
 	uint32_t gpio_num = (uint32_t) arg;
     xQueueSendFromISR( interrupt_queue, &gpio_num, NULL);
+}
+
+/* ######################################################################### */
+/* ######################################################################### */
+
+uint8_t
+get_scaled_module( int16_t raw_data[ MPU_AXIS_COUNT ] )
+{
+    uint8_t j;
+    float module;
+
+    module = 0;
+    for( j = 0; j < MPU_AXIS_COUNT; j++ )
+        module += raw_data[ j ] * raw_data[ j ];
+    module = sqrt( module );
+
+    return ( module / 257.00 );
 }
