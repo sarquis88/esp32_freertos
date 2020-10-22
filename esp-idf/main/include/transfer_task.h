@@ -5,15 +5,24 @@
 #define TRANSFER_TASK_STACK_SIZE	( configMINIMAL_STACK_SIZE + 8096               )
 #define TRANSFER_TASK_TAG           ( ( const char * ) "Transfer"                   )
 
-#define HTTP_URL                    ( ( const char * ) "http://192.168.100.6:8080"  )
+/*
+    Put your HTTP URL here
+*/
+#define HTTP_URL                    ( ( const char * ) "URL"                        )
 #define HTTP_KEY                    ( ( const char * ) "Accel"                      )
 /*
     If HTTP_CHUNK_SIZE increases, so should the stack memory or stackOverflow may occur
 */
-#define HTTP_CHUNK_SIZE             ( 500                                           ) 
+#define HTTP_CHUNK_SIZE             ( 100                                           ) 
 
-#define WIFI_SSID                   ( ( const char * ) "AbortoLegalYa"              )
-#define WIFI_PASSWD                 ( ( const char * ) "mirifea123"                 )
+/*
+    Put your WiFi ssid here
+*/
+#define WIFI_SSID                   ( ( const char * ) "SSID"                       )
+/*
+    Put your WiFi password here
+*/
+#define WIFI_PASSWD                 ( ( const char * ) "PASSWD"                     )
 
 /*
     Function called by the main task.

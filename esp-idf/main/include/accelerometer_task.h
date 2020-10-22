@@ -11,18 +11,18 @@
 #define MPU_AXIS_COUNT                  ( ( uint8_t     ) 3                 )
 #define MPU_FIFO_SIZE                   ( ( size_t      ) 1024              )
 #define MPU_GROUP_SIZE                  ( ( size_t      ) 170               )
-#define MPU_AX_OFFSET                   ( ( int16_t ) -3200                 )
-#define MPU_AY_OFFSET                   ( ( int16_t ) -1480                 )
-#define MPU_AZ_OFFSET                   ( ( int16_t ) -350                  )
+#define MPU_AX_OFFSET                   ( ( int16_t ) -3600                 )
+#define MPU_AY_OFFSET                   ( ( int16_t ) 1450                  )
+#define MPU_AZ_OFFSET                   ( ( int16_t ) -300                  )
 
 /* 
     Max = ~7900
 */
-#define RAM_DATA_SIZE                   ( ( size_t ) 500                   )  
+#define RAM_DATA_SIZE                   ( ( size_t ) 1000                   )  
 /* 
     Max = ~2400000
 */
-#define FILESYSTEM_DATA_SIZE            ( ( size_t ) 500                  )  
+#define FILESYSTEM_DATA_SIZE            ( ( size_t ) 5000                   )  
 
 /*
     Function called by the main task
