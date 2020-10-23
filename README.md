@@ -17,6 +17,10 @@ The main goals of the proyect are:
  * ESP32 Port 19 <-> MPU6050 SDA
  * ESP32 Port 2  <-> MPU6050 INT
  * GND           <-> MPU6050 AD0
+ * GND           <-> MPU6050 GND
+ * GND           <-> ESP32 GND
+ * VCC           <-> MPU6050 VCC
+ * VCC           <-> ESP32 VCC
 
 ### Run in one command (Linux only)
 Clone the repository and go to the proyect folder, then
