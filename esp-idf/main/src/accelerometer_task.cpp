@@ -1,4 +1,4 @@
-#include "../include/accelerometer_task.h"
+#include "../include/accelerometer_task.hpp"
 
 /* Static variables declarations */
 static MPU6050 mpu;

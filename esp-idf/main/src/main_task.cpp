@@ -1,4 +1,4 @@
-#include "../include/main_task.h"
+#include "../include/main_task.hpp"
 
 /* Precompilation definitions */
 #if GLOBAL_VERBOSITY_LEVEL > 0

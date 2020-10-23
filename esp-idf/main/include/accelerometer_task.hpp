@@ -1,4 +1,4 @@
-#include "main_task.h"
+#include "main_task.hpp"
 
 #define ACCELEROMETER_TASK_DELAY_MS		( ( uint16_t ) 1000                 )
 #define ACCELEROMETER_TASK_PRIORITY		( tskIDLE_PRIORITY + 2              )

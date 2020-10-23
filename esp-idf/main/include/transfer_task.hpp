@@ -1,4 +1,4 @@
-#include "main_task.h"
+#include "main_task.hpp"
 
 #define TRANSFER_TASK_DELAY         ( 3000                                          )
 #define TRANSFER_TASK_PRIORITY		( tskIDLE_PRIORITY + 2                          )
