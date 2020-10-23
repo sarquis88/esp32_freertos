@@ -26,5 +26,8 @@ Clone the repository and go to the proyect folder, then
  
 This is assuming the hardware is in the serial port /dev/ttyUSB0. If not, change it in the scripts under the scripts dir.
 
+### Tested on human walking
+![Schematic](https://github.com/sarquis88/esp32_freertos/blob/master/results_devkit.png)
+
 ### Known bugs
  * Sometimes, when you flash the micro, it doesn't wake up when waiting for the interrupt from the accelerometer. This can be solved reseting it. After the bug is solved, is not going to happen again until a new flash.
