@@ -146,6 +146,11 @@ prvTransferTask( void *pvParameters )
 			ESP_LOGI( TRANSFER_TASK_TAG, "Data (%d) has been retranssmited from accelerometer through WiFi", data_size );
 			#endif
 
+			/* Stop WiFi */
+			ESP_ERROR_CHECK( esp_wifi_disconnect() );
+			ESP_ERROR_CHECK( esp_wifi_stop() );
+			ESP_ERROR_CHECK( esp_wifi_deinit() );
+
 			/* Send end message */
 			queue_buffer = CODE_ENDTRANSFER;
 			xQueueSend( *accelerometer_task_queue, &queue_buffer, portMAX_DELAY );

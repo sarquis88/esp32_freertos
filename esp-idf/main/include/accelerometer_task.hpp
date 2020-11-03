@@ -18,11 +18,11 @@
 /* 
     Max = ~7900
 */
-#define RAM_DATA_SIZE                   ( ( size_t ) 1000                   )  
+#define RAM_DATA_SIZE                   ( ( size_t ) 169                    )  
 /* 
     Max = ~2400000
 */
-#define FILESYSTEM_DATA_SIZE            ( ( size_t ) 5000                   )  
+#define FILESYSTEM_DATA_SIZE            ( ( size_t ) 169                    )  
 
 /*
     Function called by the main task
@@ -75,6 +75,3 @@ void send_data_and_wait                 ( uint32_t                          );
     @param len size in bytes of the data
 */
 esp_err_t write_to_filesystem           ( uint8_t*, size_t                  );
-
-
-

@@ -206,6 +206,8 @@ mpu_init()
 void
 start_deep_sleep_mode()
 {
+    ESP_ERROR_CHECK( i2c_driver_delete( I2C_NUM_0 ) );
+
     ESP_ERROR_CHECK( rtc_gpio_pulldown_en( GPIO_PIN_2 ) );
     ESP_ERROR_CHECK( esp_sleep_enable_ext0_wakeup( GPIO_PIN_2, 1 ) );
 	esp_deep_sleep_start();
