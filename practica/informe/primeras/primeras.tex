@@ -1,0 +1,351 @@
+\documentclass{article}
+
+\usepackage[spanish]{babel}
+\usepackage{titling}
+\usepackage{graphicx}
+\usepackage{graphicx}
+\usepackage[export]{adjustbox}
+\usepackage{hyperref}
+\usepackage{ragged2e}
+\usepackage{indentfirst}
+\usepackage{float}
+\usepackage{microtype}
+\usepackage[bottom]{footmisc}
+\usepackage{fancyhdr}
+\fancyhead[R]{2020}\fancyhead[L]{UNC - FCEFyN} \fancyfoot[C]{\thepage}
+\pagestyle{fancy}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{Universidad Nacional de Córdoba\\Facultad de Ciencias Exactas, Físicas y Naturales}
+\author{Tomas Sarquis}
+\date{Diciembre 2020}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\hypersetup{
+    colorlinks,
+    citecolor=black,
+    filecolor=black,
+    linkcolor=blue,
+    urlcolor=black
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newcommand{ \fnintelydrone }{\footnote{\url{www.intelydrone.com}}}
+\newcommand{ \fnincubadora }{\footnote{\url{www.incubadoradeempresas.unc.edu.ar}}}
+\newcommand{ \fntrace }{\footnote{\url{www.intelydrone.com/root/latest/products.html}}}
+\newcommand{ \fnarduino }{\footnote{\url{www.arduino.cc}}}
+\newcommand{ \fnfreertos }{\footnote{\url{www.freertos.org}}}
+\newcommand{ \fnespressif }{\footnote{\url{www.espressif.com}}}
+\newcommand{ \fnesp }{\footnote{\url{www.espressif.com/en/products/modules/esp32}}}
+\newcommand{ \fnidosc }{\footnote{\url{docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/i2c.html}}}
+\newcommand{ \fnmasterslave }{\footnote{\url{en.wikipedia.org/wiki/Master/slave_(technology)}}}
+\newcommand{ \fnidoscdevlib }{\footnote{\url{www.github.com/jrowberg/i2cdevlib}}}
+\newcommand{ \fnmodulo }{\footnote{En las pruebas realizadas, éste valor no supera las 100 unidades}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \begin{titlingpage}
+        \maketitle
+        \null \null \null \null 
+        
+        \begin{center}
+            {\huge Práctica Supervisada}
+        \end{center}
+        
+        \begin{center}
+            {\huge Primeras cien horas}
+        \end{center}
+        
+        \topskip0pt % (?)
+        
+        \null \null \null \null 
+        
+        \begin{center}
+            {\large \textbf{Monitoreo del movimiento de animales vacunos}}
+        \end{center}
+        
+        \begin{center}
+            {\large \textbf{Supervisor}: Gustavo Wolfmann }
+        \end{center}
+
+    \end{titlingpage}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \tableofcontents 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \newpage
+    \section{Introducción}
+
+    El presente documento detalla la realización de la práctica profesional
+    supervisada llevada a cabo por el estudiante Tomas Sarquis, perteneciente 
+    a la carrera de Ingeniería en Computación. \par
+
+    La práctica fue realizada para \emph{Intelydrone}\fnintelydrone, empresa 
+    que actualmente se encuentra radicada en la encubadora de empresas de la 
+    Universidad Nacional de Córdoba\fnincubadora, y que se desempeña en el 
+    rubro de \emph{Innovación Tecnológica en Ganaderia}. Gustavo Wolfmann,
+    supervisor de la práctica que éste documento detalla, forma parte del 
+    equipo fundador de \emph{Intelydrone}. \par
+
+    El trabajo realizado tuvo que ver con uno de los productos que la empresa
+    ofrece: el \emph{Intelytrace}. Este ``es un dispositivo de posicionamiento 
+    y seguimiento que es colocado en cada animal en forma de collar en su 
+    cuello.``\fntrace 
+
+    \begin{figure}[h]
+        \includegraphics[width=0.7 \textwidth, center]{trace.jpg}
+        \caption{Vacas con el \emph{Intelytrace} en sus cuellos}
+        \label{fig:trace}
+    \end{figure} 
+
+    \par
+    El \emph{Intelytrace} tiene varias funcionalidades, sin embargo, la 
+    práctica supervisada se centró en el monitorio del movimiento de los 
+    animales. \par
+
+    La práctica profesional tuvo una duración de 200 (doscientas) horas, 
+    repartidas en 41 (cuarenta y  uno) días. Este documento detalla la primera
+    mitad de la misma.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    \newpage
+    \section{Entorno de trabajo}
+
+    \subsection{Propuesta}
+    Si bien Intelydrone ya contaba con un sistema que cumplía con la tarea 
+    de monitoreo de movimiento, la empresa buscaba rehacer el mismo, ya que el
+    existente no cumplía con ciertos aspectos que se deseaban mejorar. Entre 
+    éstos últimos, se encontraban el poco ahorro de energía (cuestión muy 
+    importante debido a que el sistema funciona en una placa embebida 
+    alimentada por batería) y el hecho de que el programa en la placa estaba
+    desarrollado con librerías de \emph{Arduino}\fnarduino. \par
+
+    Debido a lo anterior, se le propuso al alumno llevar a cabo la tarea 
+    anteriormente mencionada cumpliendo los siguientes requisitos:
+
+    \begin{itemize}
+        \item El programa debe ejecutarse bajo el sistema operativo de tiempo
+        real \emph{FreeRTOS}\fnfreertos.
+        \item El programa debe estar implementado en el lenguaje de 
+        programación \emph{C++}.
+        \item El sistema debe ser corrido en la placa \emph{ESP32}\fnesp de 
+        \emph{Espressif}\fnespressif.
+        \item El sistema debe ahorrar el máximo de energía posible.
+    \end{itemize}
+    
+    \subsection{Lugar de trabajo}
+    La práctica profesional se llevó a cabo en un contexto de cuarentena causada 
+    por la pandemia mundial del año 2020. Es por esto que el alumno realizó la 
+    labor en su domicilio, previamente habiéndose puesto de acuerdo con su 
+    supervisor y proporcionándole, éste último, del \emph{hardware} necesario 
+    para comenzar a trabajar. Para otras consultas laborales, se recurrió a 
+    medios de comunicación virtuales.
+
+    \subsection{Hardware}
+    El \emph{hardware} utilizado para llevar a cabo el sistema consta de dos 
+    partes importantes: el módulo \emph{ESP32-WROOM} (figura \ref{fig:esp32})
+    y el sensor \emph{MPU6050} (figura \ref{fig:mpu}). Siendo esta última, 
+    un módulo que funciona como acelerómetro, termómetro y/o giroscópio. \par
+
+    Además, para llevar a cabo el diseño de la manera más cómoda posible, se
+    utilizó el \emph{ESP32-DevKit}.
+
+    \begin{figure}[h]
+        \includegraphics[width=0.6 \textwidth, center]{esp32.png}
+        \caption{Módulo (izquierda) y \emph{DevKit} (derecha)}
+        \label{fig:esp32}
+    \end{figure} 
+
+    \begin{figure}[h]
+        \includegraphics[width=0.3 \textwidth, center]{mpu.png}
+        \caption{Sensor de movimiento}
+        \label{fig:mpu}
+    \end{figure} 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \newpage
+    \section{Descripción del trabajo}   
+
+    \subsection{Investigación}
+    Las primeras horas de trabajo fueron dedicadas a la familiarización del 
+    \emph{hardware}: se le instaló el sistema operativo y se le dieron tareas
+    simples para probar su correcto funcionamiento. \par
+    El paso siguiente fue el de leer la \emph{API Guide} de \emph{Espressif}, 
+    con la cual el estudiante pudo conocer las funciones proveídas por los 
+    desarrolladores oficiales y conocer el alcance de las mismas. Dichas 
+    funciones son usadas constantemente en el programa, y sin ellas la 
+    implementación sería mucho más ardua. \par
+    Posteriormente, la documentación del sensor también fue estudiada, ya que 
+    uno debe conocer los registros internos y sus distintas maneras de 
+    funcionamiento. \par
+    Se pudo, además, acceder a la documentación de la primera implementación
+    del sistema (recordar que \emph{Intelydrone} ya contaba con el mismo, pero 
+    se buscaba mejorar). De esta forma, el estudiante adquirió una idea clara 
+    del producto final. \newline \par
+
+    La etapa de investigación, que duró 10 (diez) días, sirvió para tener un 
+    mejor entendimiento general de la labor, y así poder encarar de forma 
+    óptima la etapa de desarrollo. \par
+    Cabe aclarar que el estudiante se enconcontró en situaciones de 
+    investigaciones posteriores, a pesar de haber terminado la etapa.
+
+    \subsection{Desarrollo}
+    Una vez familiarizado con los dispositivo (\emph{ESP32} y \emph{MPU6050}),
+    lo primero que se hizo fue armar el circuito de pruebas (figura 
+    \ref{fig:circuito}) para poder empezar a tomar las primeras medidas de 
+    aceleración. Dicho circuito se utilizó para el desarrollo únicamente, ya 
+    que más adelante se iba a utilizar la placa integrada del \emph{Intelytrace}.
+    \par
+    En las siguientes subsectiones, se detalla el desarrollo de las partes 
+    principales del sistema en orden cronológico.
+
+    \begin{figure}[h]
+        \includegraphics[width=0.9 \textwidth, center]{circuito.png}
+        \caption{Circuito de pruebas}
+        \label{fig:circuito}
+    \end{figure}
+
+    \subsubsection{Comunicación serie}
+    Debe existir una constante comunicación entre el micro y el sensor, tanto 
+    para la configuración del útlimo, como para la recepción de las mediciones.
+    Para esto, el sensor es compatible con el protocolo de comunicación serie
+    \emph{I2C}\fnidosc, que utliza el modelo de control \emph{master/slave}
+    \fnmasterslave. \par
+    Para la configuración del \emph{driver} se utilizan las funciones de los
+    fabricantes, mientras que para el uso del \emph{bus}, o sea, envío y 
+    recepción de datos, se usa la librería \emph{i2cdevlib}, de \emph{jrowberg}
+    \fnidoscdevlib.
+
+    \subsubsection{Configuración del sensor}
+    Cuando el programa bootea (inicia por primera vez), lo primero que se hace
+    es configurar el sensor para poder empezar a utilizarlo. Como se dijo 
+    anteriormente, esto se realiza mediante una comunicación serie, en la cual
+    se leen y/o escriben registros del sensor. \par
+    Algunas de las configuraciones hechas, que se consideran importantes, son:
+    \begin{itemize}
+        \item \textbf{Activación de FIFO:} Se activa una cola, del tipo
+        \emph{FIFO}, de 1024 bytes para almacenar mediciones.
+        \item \textbf{Interrupciones:} Se avisa al micro, mediante una 
+        interrupción, que la cola del sensor se ha llenado. Mientras el sensor
+        va llenando la cola, el micro ahorra energía, y cuando la cola se llena,
+        el micro ``despierta`` y la vacía.
+        \item \textbf{Apagado de sensores:} Se apagan el sensor giroscópico y 
+        el de temperatura, ya que no son tenidos en cuenta.
+        \item \textbf{Calibración:} Se calibra el sensor, de forma que, cuando
+        se encuentra quieto, las mediciones arrojen un valor cercano al cero.
+        \item \textbf{Arranque de mediciones:} En su estado inicial el sensor
+        no realiza mediciones, por lo que se lo debe configurar para que 
+        empiece a hacerlo.
+    \end{itemize}
+
+    \subsubsection{Recepción de mediciones}
+    A medida que el sensor va tomando mediciones, los valores de las mismas
+    van escribiéndose en la cola \emph{FIFO}. La estructura y el orden de lo 
+    anterior se refleja en la tabla \ref{tab:registros}. \par
+
+    \begin{table}[h]
+        \centering
+        \begin{tabular}{||c||} 
+            \hline
+            Registro \\ [0.5ex] 
+            \hline\hline
+            ACCEL\_XOUT\_H\_0 \\ 
+            \hline
+            ACCEL\_XOUT\_L\_0 \\ 
+            \hline
+            ACCEL\_YOUT\_H\_0 \\ 
+            \hline
+            ACCEL\_YOUT\_L\_0 \\ 
+            \hline
+            ACCEL\_ZOUT\_H\_0 \\ 
+            \hline
+            ACCEL\_ZOUT\_L\_0 \\ 
+            \hline
+            ACCEL\_XOUT\_H\_1 \\ 
+            \hline
+            ACCEL\_XOUT\_L\_1 \\ 
+            \hline
+            ACCEL\_YOUT\_H\_1 \\ 
+            \hline
+            ACCEL\_YOUT\_L\_1 \\ 
+            \hline
+            ACCEL\_ZOUT\_H\_1 \\ 
+            \hline
+            ACCEL\_ZOUT\_L\_1 \\ 
+            \hline
+            ... \\ 
+            \hline
+            ACCEL\_XOUT\_H\_N \\ 
+            \hline
+            ACCEL\_XOUT\_L\_N \\ 
+            \hline
+            ACCEL\_YOUT\_H\_N \\ 
+            \hline
+            ACCEL\_YOUT\_L\_N \\ 
+            \hline
+            ACCEL\_ZOUT\_H\_N \\ 
+            \hline
+            ACCEL\_ZOUT\_L\_N \\ 
+            \hline
+        \end{tabular}
+        \caption{Estructura de cola con mediciones registradas, siendo \emph{N} la 
+        cantidad de las mismas}
+        \label{tab:registros}
+    \end{table}
+
+    Una medición consiste en 3 valores: uno por cada eje gravitacional (X,Y,Z).
+    Los valores de cada eje tienen un largo de 16 \emph{bits}, que son guardados
+    en 2 registros de 8 \emph{bits} cada uno, lo que da un total de 6 registros 
+    por medición (un total de 48 \emph{bits}). Lo que interesa es saber el 
+    módulo del vector gravitacional, que es calculado como:
+    
+    \[ |ACCEL| = \sqrt{ ACCEL\_OUT\_X^2 + ACCEL\_OUT\_Y^2 + ACCEL\_OUT\_Z^2 } \]
+
+    Finalmente, el módulo es mapeado a un valor entero de 8 \emph{bits}, que 
+    puede ir desde 0 (mínima aceleración) a 255 (máxima aceleración)\fnmodulo.
+    
+    \subsection{Primeras mediciones obtenidas}
+    Los primeros resultados arrojados se pueden observar en la figura 
+    \ref{fig:resultados_devkit}, los cuales fueron obtenidos midiendo la 
+    aceleración humana caminando y trotando a distintas velocidades. La 
+    cantidad de mediciones es de 506.
+
+    \begin{figure}[H]
+        \includegraphics[width=1.0 \textwidth, center]{results_devkit.png}
+        \caption{Primeras mediciones obtenidas}
+        \label{fig:resultados_devkit}
+    \end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \newpage
+    \section{Conclusión}
+
+    Las primeras 100 horas de trabajo supervisado han sido dedicadas,
+    primeramente, a la investigación y al estudio del sistema objetivo y de las
+    herramientas que el estudiante tubo a su disposición. \par
+    En la etapa de desarrollo hubo un avance considerable, muchas veces viéndose
+    frenado por implementaciones a corregir o mejorar. Sin embargo, con ayuda
+    de la comunidad informática y del supervisor, lo visto en la etapa de 
+    investigación pudo aplicarse de forma exitosa en la práctica, obteniendo
+    resultados positivos. \par
+    Hasta el momento, la mitad del sistema se encuentra implementada. En la 
+    segunda mitad se enfrentará las problemáticas del guardado de datos en el
+    microcontrolador y el envío de los mismos a un servidor, como así tambien,
+    se llevará el programa a la placa del \emph{Intelytrace}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\end{document}
