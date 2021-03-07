@@ -49,6 +49,7 @@
 \newcommand{ \fnwifi }{\footnote{El sistema debía usar \emph{LoRa} pero el estudiante no contó con el \emph{hardware} necesario}}
 \newcommand{ \fnsleep }{\footnote{El estudio del consumo considera únicamente las etapas de \emph{sleep} ya que en ésta etapa transcurre más del 90\% del programa}}
 \newcommand{ \fnejemplos }{\footnote{\url{www.github.com/espressif/esp-idf/tree/master/examples/system/deep_sleep}}}
+\newcommand{ \fnrepo }{\footnote{\url{www.github.com/tsarquis88/esp32_freertos}}}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -404,7 +405,9 @@
     menor posible y para esto se hizo incapié en que el microcontrolador se 
     encuentre en modo \emph{sleep} la mayor parte del tiempo.\fnsleep \par
     A pesar de esto, los resultados obtenidos en cuanto al amperaje no fueron
-    los esperados, como se puede ver en la tabla \ref{tab:consumo}.
+    los esperados, como se puede ver en la tabla \ref{tab:consumo}. \par
+    Cabe aclarar que la corriente eléctrica (consumo) fue medida en serie
+    a la batería que alimenta toda la placa.
 
     \begin{table}[h]
         \centering
@@ -419,10 +422,15 @@
         \label{tab:consumo}
     \end{table}
 
-    La causa de esta diferencia en el consumo han sido atribuídas al 
-    \emph{hardware} y no al \emph{software} implementado, ya que se han llevado
-    a cabo pruebas con programas oficiales\fnejemplos y los resultados han sido
-    los mismos.
+    Si bien no se sabe, a ciencia cierta, a qué se debe esta diferencia de 
+    consumo, la misma no se atribuye a un problema del \emph{software} 
+    implementado, ya que se han llevado a cabo pruebas con programas 
+    oficiales\fnejemplos y los resultados han sido los mismos. \par
+    Por su parte, la placa incrustada en el \emph{Intelytrace} no solo cuenta 
+    con el ESP32, si no que cuenta, además, con otros componentes de 
+    \emph{hardware} como cargador de batería, receptor LoRa WAN y GPS, por lo 
+    que se plantea como hipótesis que dichos componentes sean los causantes del 
+    alto consumo, y no el ESP32 propiamente dicho.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -437,11 +445,42 @@
     los resultados. \par
     El sistema implementado en estos meses es susceptible a (y debería, en lo 
     posible) ser mejorado, ya que ciertas cuestiones del programa lo ameritan.
-    Sin embargo, teniendo en cuenta el tiempo empleado para el desarrollo y la
-    poca experiencia del desarrollador, el resultado es muy favorable. \par
+    Además, se recomienda hacer más pruebas de \emph{testing}, ya que el 
+    desarrollador pudo hacer solamente las pruebas básicas. \par
+    Algunas mejoras podrían ser:
+    \begin{itemize}
+        \item Reemplazar la conexión WiFi por LoRa WAN
+        \item Tener en cuenta valores de movimiento relativos. Esto es, no solo
+        tener en cuenta los valores absolutos, si no, además, computar las 
+        diferencias de movimiento en función del tiempo. Esto podría ser útil
+        para detectar cambios bruscos de movimiento.
+        \item Arreglo de \emph{bugs}
+    \end{itemize} \par
+    A pesar de esto y teniendo en cuenta el tiempo empleado para el desarrollo 
+    y la poca experiencia del desarrollador, el resultado es muy favorable: los
+    requerimientos fundamentales han sido satisfechos. \par
     Los conocimientos obtenidos en la universidad y las ayudas recibidas por
     parte del supervisor y de la comunidad informática, fueron de necesidad para
     el estudiante.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage
+\section{Apéndice}
+
+El código del programa implementado se puede apreciar en el repositorio\fnrepo 
+del desarrollador. Los archivos de interés se encuentran
+sobre el directorio \emph{esp-idf/main} que, a su vez, contiene tres 
+directorios más:
+\begin{itemize}
+    \item \emph{include}. Contiene los \emph{headers} del código fuente.
+    \item \emph{lib}. Dentro se encuentran las librerías externas que han sido 
+    usadas.
+    \item \emph{src}. El código fuente de cada tarea se encuentra aquí.
+\end{itemize} \par
+El área de mayor interés es, quizás, la del directorio \emph{src}. En él se 
+encuentran implementadas las tareas del sistema, por lo que para conocer su
+funcionamiento, es de crucial importancia entender estos códigos.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
